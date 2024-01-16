@@ -26,9 +26,7 @@ Frame::Frame(const sensor_msgs::PointCloud2::ConstPtr& point_cloud_msg) {
   // set points
   points_.resize(2, lines.size());
   for (int i = 0; i < lines.size(); i++) {
-    // line in the same cell
-    if (i > 0 && lines[i].first.x == points_(0, i - 1) && lines[i].first.y == points_(1, i - 1)) continue;
-
+    // We are sure there are no 2 points with the same x, y value, since we have avoided it in ExtractLine().
     points_(0, i) = lines[i].first.x;
     points_(1, i) = lines[i].first.y;
   }
@@ -149,7 +147,12 @@ void Frame::ExtractLine(pcl::PointCloud<pcl::PointXYZ>& v_input,
         p2.x = v_input.points[v_index_vector[idx2 - 1].voxel_index].x;
         p2.y = v_input.points[v_index_vector[idx2 - 1].voxel_index].y;
         p2.z = v_input.points[v_index_vector[idx2 - 1].voxel_index].z;
-        output.emplace_back(p1, p2);
+        // emplace back to output only when p1.x and p2.x is not the same as the last entry's. This is for avoiding
+        // creating duplicate points.
+        if (output.size() == 0 ||
+            (output.size() > 0 && p1.x != output.back().first.x || p1.y != output.back().first.y)) {
+          output.emplace_back(p1, p2);
+        }
       }
       idx1 = idx2;
       idx2++;
