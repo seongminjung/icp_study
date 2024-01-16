@@ -25,13 +25,14 @@ struct voxel_index_idx {
 
 class Frame {
  private:
-  time_t timestamp_ = ros::Time::now().toSec();
+  time_t timestamp_;
   float resolution_ = 0.2;      // meter per pixel
   unsigned int width_ = 1024;   // total width of the frame
   unsigned int height_ = 1024;  // total height of the frame
   unsigned int min_points_per_voxel_ = 2;
 
   Eigen::MatrixXd points_;  // 2 x N
+  Eigen::VectorXi disabled_;  // 1 x N
 
   // Converters
   std::vector<cloud_point_index_idx> index_vector;  // Storage for mapping leaf and pointcloud indexes
@@ -50,6 +51,8 @@ class Frame {
   unsigned int GetSize();
   Eigen::MatrixXd GetPoints();  // 2 x N
   Eigen::Vector2d GetOnePoint(unsigned int idx);
+  Eigen::VectorXi GetDisabled();
+  bool GetOnePointDisabled(unsigned int idx);
 
   // Setters
   void SetTimestamp(time_t timestamp);
@@ -58,6 +61,8 @@ class Frame {
   void SetHeight(unsigned int height);
   void SetPoints(Eigen::MatrixXd points);  // 2 x N
   void SetOnePoint(unsigned int idx, Eigen::Vector2d point);
+  void SetAllPointsDisabled(bool disabled);
+  void SetOnePointDisabled(unsigned int idx, bool disabled);
   void ReserveSize(unsigned int size);
 
   // Converters

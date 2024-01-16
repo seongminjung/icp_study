@@ -54,8 +54,10 @@ void ICP::RunICP() {
     Y.ReserveSize(X.GetSize());
 
     std::vector<std::pair<int, double>> dist_vector;  // <index of X, distance>
-    dist_vector.clear();
     dist_vector.reserve(X.GetSize());
+
+    // Revoke disabled status
+    X.SetAllPointsDisabled(false);
 
     // Find the nearest neighbor for each point in X
     for (int i = 0; i < N_F2; i++) {
@@ -72,6 +74,16 @@ void ICP::RunICP() {
       dist_vector.emplace_back(i, min_dist);
       Y.SetOnePoint(i, F1_.GetOnePoint(min_idx));
     }
+
+    // sort dist_vector by distance
+    std::sort(dist_vector.begin(), dist_vector.end(),
+              [](const std::pair<int, double>& a, const std::pair<int, double>& b) { return a.second > b.second; });
+
+    // Drop points with top 5% distance by making disabled_(i) = 1
+    for (int i = 0; i < N_F2 * 0.05; i++) {
+      X.SetOnePointDisabled(dist_vector[i].first, true);
+    }
+
     VisualizeLineBetweenMatchingPoints(marker_pub_, X, Y);
     VisualizeFrame(marker_pub_, X, 2);
 
@@ -115,8 +127,20 @@ void ICP::FindAlignment(Frame& X_frame, Frame& Y_frame, Eigen::Matrix3d& result)
     ROS_ERROR("Need at least four pairs of points!");
   }
 
-  Eigen::MatrixXd X = X_frame.GetPoints();
-  Eigen::MatrixXd Y = Y_frame.GetPoints();
+  // Get matrix without disabled points
+  int num_disabled = X_frame.GetDisabled().sum();
+  ROS_INFO("num_disabled: %d", num_disabled);
+  Eigen::MatrixXd X(2, X_frame.GetSize() - num_disabled);
+  Eigen::MatrixXd Y(2, Y_frame.GetSize() - num_disabled);
+  int idx = 0;
+  for (int i = 0; i < X_frame.GetSize(); i++) {
+    if (!X_frame.GetOnePointDisabled(i)) {
+      X.col(idx) = X_frame.GetOnePoint(i);
+      Y.col(idx) = Y_frame.GetOnePoint(i);
+      idx++;
+    }
+  }
+
   unsigned int N = X.cols();
 
   // Seperate coordinates and height

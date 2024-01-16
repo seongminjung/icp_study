@@ -7,9 +7,11 @@ Frame::Frame(const sensor_msgs::PointCloud2::ConstPtr& point_cloud_msg) {
   pcl::fromROSMsg(*point_cloud_msg, *ptr_cloud);
 
   // make 10 x 10 grid with resolution of 0.2 meter
+  timestamp_ = point_cloud_msg->header.stamp.toSec();
   resolution_ = 0.2;
   width_ = 1024;
   height_ = 1024;
+  min_points_per_voxel_ = 2;
 
   ////////////////////////////////
   // Conversion start here
@@ -31,6 +33,9 @@ Frame::Frame(const sensor_msgs::PointCloud2::ConstPtr& point_cloud_msg) {
     points_(1, i) = lines[i].first.y;
   }
 
+  // set disabled_
+  disabled_ = Eigen::VectorXi::Zero(points_.cols());
+
   // print number of pointcloud points and frame points
   ROS_INFO("pointcloud timestamp: %f", point_cloud_msg->header.stamp.toSec());
   ROS_INFO("pointcloud size: %ld", ptr_cloud->points.size());
@@ -43,6 +48,7 @@ Frame::Frame(const Frame& other) {
   width_ = other.width_;
   height_ = other.height_;
   points_ = other.points_;
+  disabled_ = other.disabled_;
 }
 
 ////////////////////////////////
@@ -54,6 +60,8 @@ unsigned int Frame::GetHeight() { return height_; }
 unsigned int Frame::GetSize() { return points_.cols(); }
 Eigen::MatrixXd Frame::GetPoints() { return points_; }
 Eigen::Vector2d Frame::GetOnePoint(unsigned int idx) { return points_.col(idx); }
+Eigen::VectorXi Frame::GetDisabled() { return disabled_; }
+bool Frame::GetOnePointDisabled(unsigned int idx) { return disabled_(idx); }
 
 ////////////////////////////////
 // Setters
@@ -66,6 +74,8 @@ void Frame::SetOnePoint(unsigned int idx, Eigen::Vector2d point) {
   points_(0, idx) = point(0);
   points_(1, idx) = point(1);
 }
+void Frame::SetAllPointsDisabled(bool disabled) { disabled_ = Eigen::VectorXi::Ones(points_.cols()) * disabled; }
+void Frame::SetOnePointDisabled(unsigned int idx, bool disabled) { disabled_(idx) = disabled; }
 void Frame::ReserveSize(unsigned int size) { points_.resize(2, size); }
 
 ////////////////////////////////

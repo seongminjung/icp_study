@@ -54,7 +54,7 @@ void VisualizeFrame(ros::Publisher marker_pub, Frame& frame, int color) {
     double y = frame.GetOnePoint(i)(1);
     // double height = height_grid.GetCells()[i].height;
 
-    // bool disabled = height_grid.GetCells()[i].disabled;
+    bool disabled = frame.GetOnePointDisabled(i);
 
     marker = visualization_msgs::Marker();
     // Set the frame ID and timestamp.
@@ -105,13 +105,13 @@ void VisualizeFrame(ros::Publisher marker_pub, Frame& frame, int color) {
     marker.color.a = 0.5;
     // marker.color.a = 0.5 * height;
 
-    // // if disabled, make it yellow
-    // if (disabled) {
-    //   marker.color.r = 1;
-    //   marker.color.g = 1;
-    //   marker.color.b = 0;
-    //   marker.color.a = 0.5;
-    // }
+    // if disabled, make it yellow
+    if (disabled) {
+      marker.color.r = 1;
+      marker.color.g = 1;
+      marker.color.b = 0;
+      marker.color.a = 0.5;
+    }
 
     marker.lifetime = ros::Duration();
 
@@ -137,7 +137,7 @@ void VisualizeLineBetweenMatchingPoints(ros::Publisher marker_pub, Frame F1, Fra
     double y2 = points2(1, i);
     // double height2 = cells2[i].height;
 
-    // bool disabled = cells1[i].disabled;
+    bool disabled = F1.GetOnePointDisabled(i);  // X disabled
 
     marker = visualization_msgs::Marker();
     // Set the frame ID and timestamp.
@@ -169,12 +169,12 @@ void VisualizeLineBetweenMatchingPoints(ros::Publisher marker_pub, Frame F1, Fra
     // marker.color.a = 0.5 * (height1 + height2);
 
     // if disabled, make it yellow
-    // if (disabled) {
-    //   marker.color.r = 1;
-    //   marker.color.g = 1;
-    //   marker.color.b = 0;
-    //   marker.color.a = 0.5;
-    // }
+    if (disabled) {
+      marker.color.r = 1;
+      marker.color.g = 1;
+      marker.color.b = 0;
+      marker.color.a = 0.5;
+    }
 
     marker.lifetime = ros::Duration();
 
