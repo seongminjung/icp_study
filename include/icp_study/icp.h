@@ -22,6 +22,7 @@ class ICP {
 
   void PointCloudCallback(const sensor_msgs::PointCloud2::ConstPtr& point_cloud_msg);
   void RunICP();
+  void FindAlignment(Frame& X, Frame& Y, Eigen::Matrix3d& Result);
 };
 
 #endif  // ICP_H
