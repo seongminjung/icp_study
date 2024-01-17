@@ -1,10 +1,13 @@
 #include "icp_study/icp.h"
 
 #include <pcl/point_types.h>
+#include <pcl/registration/icp.h>
+#include <pcl/visualization/cloud_viewer.h>
 #include <pcl_conversions/pcl_conversions.h>
 #include <ros/ros.h>
 #include <sensor_msgs/PointCloud2.h>
 
+#include <chrono>
 #include <vector>
 
 #include "icp_study/frame.h"
@@ -12,7 +15,7 @@
 
 ICP::ICP() {
   marker_pub_ = nh_.advertise<visualization_msgs::MarkerArray>("visualization_marker/frame", 1);
-  point_cloud_sub_ = nh_.subscribe("/kitti/velo/pointcloud", 1, &ICP::PointCloudCallback, this);
+  point_cloud_sub_ = nh_.subscribe("/kitti/velo/pointcloud", 1, &ICP::PointCloudCallbackForPCL, this);
 }
 
 void ICP::PointCloudCallback(const sensor_msgs::PointCloud2::ConstPtr& point_cloud_msg) {
@@ -23,6 +26,19 @@ void ICP::PointCloudCallback(const sensor_msgs::PointCloud2::ConstPtr& point_clo
     F2_ = Frame(point_cloud_msg);
     VisualizeFrame(marker_pub_, F2_, 1);
     RunICP();
+  }
+}
+
+void ICP::PointCloudCallbackForPCL(const sensor_msgs::PointCloud2::ConstPtr& point_cloud_msg) {
+  if (tgt == nullptr) {
+    pcl::PointCloud<pcl::PointXYZ>::Ptr ptr_cloud1(new pcl::PointCloud<pcl::PointXYZ>);
+    pcl::fromROSMsg(*point_cloud_msg, *ptr_cloud1);
+    tgt = ptr_cloud1;
+  } else if (src == nullptr) {
+    pcl::PointCloud<pcl::PointXYZ>::Ptr ptr_cloud2(new pcl::PointCloud<pcl::PointXYZ>);
+    pcl::fromROSMsg(*point_cloud_msg, *ptr_cloud2);
+    src = ptr_cloud2;
+    RunICPPCL();
   }
 }
 
@@ -189,4 +205,59 @@ void ICP::FindAlignment(Frame& X_frame, Frame& Y_frame, Eigen::Matrix3d& result)
   VisualizeCentroid(marker_pub_, X_centroid, X_frame.GetTimestamp(), 1);
   Eigen::Vector2d X_centroid_tf = R * X_centroid + t;
   VisualizeCentroid(marker_pub_, X_centroid_tf, X_frame.GetTimestamp(), 2);
+}
+
+void ICP::RunICPPCL() {
+  /// \brief Run PCL ICP algorithm. src is transformed to tgt.
+  pcl::IterativeClosestPoint<pcl::PointXYZ, pcl::PointXYZ> icp;
+  icp.setMaxCorrespondenceDistance(1.0);
+  icp.setTransformationEpsilon(0.001);
+  icp.setMaximumIterations(1000);
+
+  pcl::PointCloud<pcl::PointXYZ>::Ptr align(new pcl::PointCloud<pcl::PointXYZ>);
+
+  // 걸리는 시간 측정
+  std::chrono::system_clock::time_point t_start = std::chrono::system_clock::now();
+
+  // Registration 시행
+  icp.setInputSource(src);
+  icp.setInputTarget(tgt);
+  icp.align(*align);
+
+  std::chrono::system_clock::time_point t_end = std::chrono::system_clock::now();
+  /*******************************************/
+  std::chrono::duration<double> t_reg = t_end - t_start;
+  std::cout << "Takes " << t_reg.count() << " sec..." << std::endl;
+
+  // Set outputs
+  Eigen::Matrix4f src2tgt = icp.getFinalTransformation();
+  double score = icp.getFitnessScore();
+  bool is_converged = icp.hasConverged();
+
+  std::cout << "Transformation: " << src2tgt << std::endl;
+  std::cout << "Error: " << score << std::endl;
+  std::cout << "Converged: " << is_converged << std::endl;
+
+  pcl::PointCloud<pcl::PointXYZRGB>::Ptr src_colored(new pcl::PointCloud<pcl::PointXYZRGB>);
+  pcl::PointCloud<pcl::PointXYZRGB>::Ptr tgt_colored(new pcl::PointCloud<pcl::PointXYZRGB>);
+  pcl::PointCloud<pcl::PointXYZRGB>::Ptr align_colored(new pcl::PointCloud<pcl::PointXYZRGB>);
+  colorize(*src, *src_colored, {255, 0, 0});
+  colorize(*tgt, *tgt_colored, {0, 255, 0});
+  colorize(*align, *align_colored, {0, 0, 255});
+
+  /**
+   * 결과 visualization 하기
+   */
+  pcl::visualization::CloudViewer viewer("Cloud Viewer");
+  viewer.showCloud(src_colored, "src_viz");
+  viewer.showCloud(tgt_colored, "tgt_viz");
+  viewer.showCloud(align_colored, "align_viz");
+
+  int cnt = 0;
+  while (!viewer.wasStopped()) {
+    // you can also do cool processing here
+    // FIXME: Note that this is running in a separate thread from viewerPsycho
+    // and you should guard against race conditions yourself...
+    cnt++;
+  }
 }
