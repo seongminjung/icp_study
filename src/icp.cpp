@@ -38,7 +38,8 @@ void ICP::PointCloudCallbackForPCL(const sensor_msgs::PointCloud2::ConstPtr& poi
     pcl::PointCloud<pcl::PointXYZ>::Ptr ptr_cloud2(new pcl::PointCloud<pcl::PointXYZ>);
     pcl::fromROSMsg(*point_cloud_msg, *ptr_cloud2);
     src = ptr_cloud2;
-    RunICPPCL();
+    // RunICPPCL();
+    RunGICPPCL();
   }
 }
 
@@ -233,6 +234,61 @@ void ICP::RunICPPCL() {
   Eigen::Matrix4f src2tgt = icp.getFinalTransformation();
   double score = icp.getFitnessScore();
   bool is_converged = icp.hasConverged();
+
+  std::cout << "Transformation: " << src2tgt << std::endl;
+  std::cout << "Error: " << score << std::endl;
+  std::cout << "Converged: " << is_converged << std::endl;
+
+  pcl::PointCloud<pcl::PointXYZRGB>::Ptr src_colored(new pcl::PointCloud<pcl::PointXYZRGB>);
+  pcl::PointCloud<pcl::PointXYZRGB>::Ptr tgt_colored(new pcl::PointCloud<pcl::PointXYZRGB>);
+  pcl::PointCloud<pcl::PointXYZRGB>::Ptr align_colored(new pcl::PointCloud<pcl::PointXYZRGB>);
+  colorize(*src, *src_colored, {255, 0, 0});
+  colorize(*tgt, *tgt_colored, {0, 255, 0});
+  colorize(*align, *align_colored, {0, 0, 255});
+
+  /**
+   * 결과 visualization 하기
+   */
+  pcl::visualization::CloudViewer viewer("Cloud Viewer");
+  viewer.showCloud(src_colored, "src_viz");
+  viewer.showCloud(tgt_colored, "tgt_viz");
+  viewer.showCloud(align_colored, "align_viz");
+
+  int cnt = 0;
+  while (!viewer.wasStopped()) {
+    // you can also do cool processing here
+    // FIXME: Note that this is running in a separate thread from viewerPsycho
+    // and you should guard against race conditions yourself...
+    cnt++;
+  }
+}
+
+void ICP::RunGICPPCL() {
+  /// \brief Run PCL ICP algorithm. src is transformed to tgt.
+  pcl::IterativeClosestPoint<pcl::PointXYZ, pcl::PointXYZ> gicp;
+  gicp.setMaxCorrespondenceDistance(1.0);
+  gicp.setTransformationEpsilon(0.001);
+  gicp.setMaximumIterations(1000);
+
+  pcl::PointCloud<pcl::PointXYZ>::Ptr align(new pcl::PointCloud<pcl::PointXYZ>);
+
+  // 걸리는 시간 측정
+  std::chrono::system_clock::time_point t_start = std::chrono::system_clock::now();
+
+  // Registration 시행
+  gicp.setInputSource(src);
+  gicp.setInputTarget(tgt);
+  gicp.align(*align);
+
+  std::chrono::system_clock::time_point t_end = std::chrono::system_clock::now();
+  /*******************************************/
+  std::chrono::duration<double> t_reg = t_end - t_start;
+  std::cout << "Takes " << t_reg.count() << " sec..." << std::endl;
+
+  // Set outputs
+  Eigen::Matrix4f src2tgt = gicp.getFinalTransformation();
+  double score = gicp.getFitnessScore();
+  bool is_converged = gicp.hasConverged();
 
   std::cout << "Transformation: " << src2tgt << std::endl;
   std::cout << "Error: " << score << std::endl;

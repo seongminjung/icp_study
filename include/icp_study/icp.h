@@ -33,6 +33,9 @@ class ICP {
   // PCL ICP algorithm
   void PointCloudCallbackForPCL(const sensor_msgs::PointCloud2::ConstPtr& point_cloud_msg);
   void RunICPPCL();
+
+  // PCL GICP algorithm
+  void RunGICPPCL();
 };
 
 #endif  // ICP_H
