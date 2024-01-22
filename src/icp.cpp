@@ -1,6 +1,7 @@
 #include "icp_study/icp.h"
 
 #include <pcl/point_types.h>
+#include <pcl/registration/gicp.h>
 #include <pcl/registration/icp.h>
 #include <pcl/visualization/cloud_viewer.h>
 #include <pcl_conversions/pcl_conversions.h>
@@ -264,8 +265,8 @@ void ICP::RunICPPCL() {
 }
 
 void ICP::RunGICPPCL() {
-  /// \brief Run PCL ICP algorithm. src is transformed to tgt.
-  pcl::IterativeClosestPoint<pcl::PointXYZ, pcl::PointXYZ> gicp;
+  /// \brief Run PCL GICP algorithm. src is transformed to tgt.
+  pcl::GeneralizedIterativeClosestPoint<pcl::PointXYZ, pcl::PointXYZ> gicp;
   gicp.setMaxCorrespondenceDistance(1.0);
   gicp.setTransformationEpsilon(0.001);
   gicp.setMaximumIterations(1000);
