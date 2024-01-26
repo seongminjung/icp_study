@@ -30,6 +30,12 @@ void ICP::PointCloudCallback(const sensor_msgs::PointCloud2::ConstPtr& point_clo
     t_end_total_ = std::chrono::system_clock::now();
     std::chrono::duration<double> t_total = t_end_total_ - t_start_total_;
     std::cout << "Total time: " << t_total.count() << " sec..." << std::endl;
+  } else {
+    F1_ = F2_;
+    VisualizeFrame(marker_pub_, F1_, 0);
+    F2_ = Frame(point_cloud_msg);
+    VisualizeFrame(marker_pub_, F2_, 1);
+    RunICP();
   }
 }
 
@@ -55,13 +61,15 @@ void ICP::RunICP() {
   Eigen::Vector2d t = Eigen::Vector2d::Zero();      // translation
   double err = 0;                                   // error
 
-  int max_iter = 200;
+  int max_iter = 100;
   double thresh = 1e-5;
 
   unsigned int N_F1 = F1_.GetSize();
   unsigned int N_F2 = F2_.GetSize();
 
   Frame X(F2_);
+
+  errors_.clear();
 
   // Start ICP loop
   t_start_ = std::chrono::system_clock::now();
@@ -76,7 +84,7 @@ void ICP::RunICP() {
     Frame X_Downsampled(X);
     Frame Y;
 
-    X_Downsampled.RandomDownsample(0.02);  // Randomly subsample 2% from X
+    X_Downsampled.RandomDownsample(0.05);  // Randomly subsample 5% from X
     Y.ReserveSize(X_Downsampled.GetSize());
 
     std::printf("X_Downsampled size: %d\n", X_Downsampled.GetSize());
