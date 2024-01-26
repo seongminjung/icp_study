@@ -1,5 +1,7 @@
 #include "icp_study/frame.h"
 
+#include <random>
+
 Frame::Frame() {}
 
 Frame::Frame(const sensor_msgs::PointCloud2::ConstPtr& point_cloud_msg) {
@@ -77,6 +79,45 @@ void Frame::SetOnePoint(unsigned int idx, Eigen::Vector2d point) {
 void Frame::SetAllPointsDisabled(bool disabled) { disabled_ = Eigen::VectorXi::Ones(points_.cols()) * disabled; }
 void Frame::SetOnePointDisabled(unsigned int idx, bool disabled) { disabled_(idx) = disabled; }
 void Frame::ReserveSize(unsigned int size) { points_.resize(2, size); }
+
+////////////////////////////////
+// Downsampling
+void Frame::RandomDownsample(double ratio) {
+  // print number of points before downsampling
+  ROS_INFO("frame size before downsampling: %ld", points_.cols());
+
+  // set disabled_ to all false
+  SetAllPointsDisabled(false);
+
+  // set random seed
+  std::random_device rd;
+  std::mt19937 gen(rd());
+  std::uniform_real_distribution<> dis(0.0, 1.0);
+
+  // set disabled_ to true for ratio of points
+  for (int i = 0; i < points_.cols(); i++) {
+    if (dis(gen) > ratio) {
+      SetOnePointDisabled(i, true);
+    }
+  }
+
+  // Make new points_ and disabled_ with only enabled points
+  Eigen::MatrixXd new_points(2, points_.cols() - disabled_.sum());
+  Eigen::VectorXi new_disabled(points_.cols() - disabled_.sum());
+  int new_idx = 0;
+  for (int i = 0; i < points_.cols(); i++) {
+    if (!GetOnePointDisabled(i)) {
+      new_points.col(new_idx) = GetOnePoint(i);
+      new_disabled(new_idx) = GetOnePointDisabled(i);
+      new_idx++;
+    }
+  }
+  points_ = new_points;
+  disabled_ = new_disabled;
+
+  // print number of points after downsampling
+  ROS_INFO("frame size after downsampling: %ld", points_.cols());
+}
 
 ////////////////////////////////
 // Converters

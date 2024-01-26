@@ -65,6 +65,9 @@ class Frame {
   void SetOnePointDisabled(unsigned int idx, bool disabled);
   void ReserveSize(unsigned int size);
 
+  // Downsampling
+  void RandomDownsample(double ratio);
+
   // Converters
   void SetIndexVector(pcl::PointCloud<pcl::PointXYZ>& input, double voxel_size);
   void Voxelize(pcl::PointCloud<pcl::PointXYZ>& input, pcl::PointCloud<pcl::PointXYZ>& output, double voxel_size,

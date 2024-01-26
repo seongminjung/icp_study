@@ -8,7 +8,6 @@
 #include <ros/ros.h>
 #include <sensor_msgs/PointCloud2.h>
 
-#include <chrono>
 #include <vector>
 
 #include "icp_study/frame.h"
@@ -16,17 +15,21 @@
 
 ICP::ICP() {
   marker_pub_ = nh_.advertise<visualization_msgs::MarkerArray>("visualization_marker/frame", 1);
-  point_cloud_sub_ = nh_.subscribe("/kitti/velo/pointcloud", 1, &ICP::PointCloudCallbackForPCL, this);
+  point_cloud_sub_ = nh_.subscribe("/kitti/velo/pointcloud", 1, &ICP::PointCloudCallback, this);
 }
 
 void ICP::PointCloudCallback(const sensor_msgs::PointCloud2::ConstPtr& point_cloud_msg) {
   if (F1_.GetSize() == 0) {
+    t_start_total_ = std::chrono::system_clock::now();
     F1_ = Frame(point_cloud_msg);
     VisualizeFrame(marker_pub_, F1_, 0);
   } else if (F2_.GetSize() == 0) {
     F2_ = Frame(point_cloud_msg);
     VisualizeFrame(marker_pub_, F2_, 1);
     RunICP();
+    t_end_total_ = std::chrono::system_clock::now();
+    std::chrono::duration<double> t_total = t_end_total_ - t_start_total_;
+    std::cout << "Total time: " << t_total.count() << " sec..." << std::endl;
   }
 }
 
@@ -61,29 +64,36 @@ void ICP::RunICP() {
   Frame X(F2_);
 
   // Start ICP loop
+  t_start_ = std::chrono::system_clock::now();
   for (int iter = 0; iter < max_iter; iter++) {
-    // if ctrl+c is pressed, stop quickly
+    // If ctrl+c is pressed, stop quickly
     if (!ros::ok()) {
       break;
     }
 
     ROS_INFO("==========iter: %d==========", iter);
+
+    Frame X_Downsampled(X);
     Frame Y;
-    Y.ReserveSize(X.GetSize());
 
-    std::vector<std::pair<int, double>> dist_vector;  // <index of X, distance>
-    dist_vector.reserve(X.GetSize());
+    X_Downsampled.RandomDownsample(0.02);  // Randomly subsample 2% from X
+    Y.ReserveSize(X_Downsampled.GetSize());
 
-    // Revoke disabled status
-    X.SetAllPointsDisabled(false);
+    ROS_INFO("X_Downsampled size: %d", X_Downsampled.GetSize());
+    ROS_INFO("Y size: %d", Y.GetSize());
 
-    // Find the nearest neighbor for each point in X
-    for (int i = 0; i < N_F2; i++) {
+    std::vector<std::pair<int, double>> dist_vector;  // <index of X_Downsampled, distance>
+    dist_vector.reserve(X_Downsampled.GetSize());
+
+    unsigned int N_Downsampled = X_Downsampled.GetSize();
+
+    // Find the nearest neighbor for each point in X_Downsampled
+    for (int i = 0; i < N_Downsampled; i++) {
       double min_dist = 1e10;
       int min_idx = 0;
       for (int j = 0; j < N_F1; j++) {
-        double dist = sqrt(pow(X.GetOnePoint(i)(0) - F1_.GetOnePoint(j)(0), 2) +
-                           pow(X.GetOnePoint(i)(1) - F1_.GetOnePoint(j)(1), 2));  // Euclidean distance
+        double dist = sqrt(pow(X_Downsampled.GetOnePoint(i)(0) - F1_.GetOnePoint(j)(0), 2) +
+                           pow(X_Downsampled.GetOnePoint(i)(1) - F1_.GetOnePoint(j)(1), 2));  // Euclidean distance
         if (dist < min_dist) {
           min_dist = dist;
           min_idx = j;
@@ -98,15 +108,15 @@ void ICP::RunICP() {
               [](const std::pair<int, double>& a, const std::pair<int, double>& b) { return a.second > b.second; });
 
     // Drop points with top 5% distance by making disabled_(i) = 1
-    for (int i = 0; i < N_F2 * 0.05; i++) {
-      X.SetOnePointDisabled(dist_vector[i].first, true);
+    for (int i = 0; i < N_Downsampled * 0.05; i++) {
+      X_Downsampled.SetOnePointDisabled(dist_vector[i].first, true);
     }
 
-    VisualizeLineBetweenMatchingPoints(marker_pub_, X, Y);
+    VisualizeLineBetweenMatchingPoints(marker_pub_, X_Downsampled, Y);
     VisualizeFrame(marker_pub_, X, 2);
 
     Eigen::Matrix3d result;
-    FindAlignment(X, Y, result);  // left top 2x2: R, right top 2x1: t, left bottom 1x1: err
+    FindAlignment(X_Downsampled, Y, result);  // left top 2x2: R, right top 2x1: t, left bottom 1x1: err
     Eigen::Matrix2d R_step = result.block<2, 2>(0, 0);
     Eigen::Vector2d t_step = result.block<2, 1>(0, 2);
 
@@ -123,12 +133,24 @@ void ICP::RunICP() {
     std::cout << "t: " << std::endl << t << std::endl;
     std::cout << "err: " << std::endl << err << std::endl;
 
-    // Check for convergence
-    if (err < thresh) {
-      VisualizeLineBetweenMatchingPoints(marker_pub_, X, Y);
+    // Check convergence
+    errors_.push_back(err);
+    if (errors_.size() > 10) {
+      errors_.erase(errors_.begin());
+    }
+    double error_mean = std::accumulate(errors_.begin(), errors_.end(), 0.0) / errors_.size();
+    double error_sq_sum = std::inner_product(errors_.begin(), errors_.end(), errors_.begin(), 0.0);
+    double error_stdev = std::sqrt(error_sq_sum / errors_.size() - error_mean * error_mean);
+    ROS_INFO("error_stdev: %f", error_stdev);
+    if (errors_.size() == 10 && error_stdev < error_stdev_threshold_) {
+      ROS_INFO("Converged!");
       break;
     }
   }
+
+  t_end_ = std::chrono::system_clock::now();
+  std::chrono::duration<double> t_reg = t_end_ - t_start_;
+  std::cout << "Takes " << t_reg.count() << " sec..." << std::endl;
 }
 
 void ICP::FindAlignment(Frame& X_frame, Frame& Y_frame, Eigen::Matrix3d& result) {
@@ -219,16 +241,16 @@ void ICP::RunICPPCL() {
   pcl::PointCloud<pcl::PointXYZ>::Ptr align(new pcl::PointCloud<pcl::PointXYZ>);
 
   // 걸리는 시간 측정
-  std::chrono::system_clock::time_point t_start = std::chrono::system_clock::now();
+  t_start_ = std::chrono::system_clock::now();
 
   // Registration 시행
   icp.setInputSource(src);
   icp.setInputTarget(tgt);
   icp.align(*align);
 
-  std::chrono::system_clock::time_point t_end = std::chrono::system_clock::now();
+  t_end_ = std::chrono::system_clock::now();
   /*******************************************/
-  std::chrono::duration<double> t_reg = t_end - t_start;
+  std::chrono::duration<double> t_reg = t_end_ - t_start_;
   std::cout << "Takes " << t_reg.count() << " sec..." << std::endl;
 
   // Set outputs
@@ -274,16 +296,16 @@ void ICP::RunGICPPCL() {
   pcl::PointCloud<pcl::PointXYZ>::Ptr align(new pcl::PointCloud<pcl::PointXYZ>);
 
   // 걸리는 시간 측정
-  std::chrono::system_clock::time_point t_start = std::chrono::system_clock::now();
+  t_start_ = std::chrono::system_clock::now();
 
   // Registration 시행
   gicp.setInputSource(src);
   gicp.setInputTarget(tgt);
   gicp.align(*align);
 
-  std::chrono::system_clock::time_point t_end = std::chrono::system_clock::now();
+  t_end_ = std::chrono::system_clock::now();
   /*******************************************/
-  std::chrono::duration<double> t_reg = t_end - t_start;
+  std::chrono::duration<double> t_reg = t_end_ - t_start_;
   std::cout << "Takes " << t_reg.count() << " sec..." << std::endl;
 
   // Set outputs
