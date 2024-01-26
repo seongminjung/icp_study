@@ -71,7 +71,7 @@ void ICP::RunICP() {
       break;
     }
 
-    ROS_INFO("==========iter: %d==========", iter);
+    std::printf("==========iter: %d==========\n", iter);
 
     Frame X_Downsampled(X);
     Frame Y;
@@ -79,8 +79,7 @@ void ICP::RunICP() {
     X_Downsampled.RandomDownsample(0.02);  // Randomly subsample 2% from X
     Y.ReserveSize(X_Downsampled.GetSize());
 
-    ROS_INFO("X_Downsampled size: %d", X_Downsampled.GetSize());
-    ROS_INFO("Y size: %d", Y.GetSize());
+    std::printf("X_Downsampled size: %d\n", X_Downsampled.GetSize());
 
     std::vector<std::pair<int, double>> dist_vector;  // <index of X_Downsampled, distance>
     dist_vector.reserve(X_Downsampled.GetSize());
@@ -131,7 +130,7 @@ void ICP::RunICP() {
     // Print R, t, err
     std::cout << "R: " << std::endl << R << std::endl;
     std::cout << "t: " << std::endl << t << std::endl;
-    std::cout << "err: " << std::endl << err << std::endl;
+    std::cout << "err: " << err << std::endl;
 
     // Check convergence
     errors_.push_back(err);
@@ -141,9 +140,9 @@ void ICP::RunICP() {
     double error_mean = std::accumulate(errors_.begin(), errors_.end(), 0.0) / errors_.size();
     double error_sq_sum = std::inner_product(errors_.begin(), errors_.end(), errors_.begin(), 0.0);
     double error_stdev = std::sqrt(error_sq_sum / errors_.size() - error_mean * error_mean);
-    ROS_INFO("error_stdev: %f", error_stdev);
+    std::printf("error_stdev: %f\n", error_stdev);
     if (errors_.size() == 10 && error_stdev < error_stdev_threshold_) {
-      ROS_INFO("Converged!");
+      std::printf("Converged!\n");
       break;
     }
   }
@@ -169,7 +168,6 @@ void ICP::FindAlignment(Frame& X_frame, Frame& Y_frame, Eigen::Matrix3d& result)
 
   // Get matrix without disabled points
   int num_disabled = X_frame.GetDisabled().sum();
-  ROS_INFO("num_disabled: %d", num_disabled);
   Eigen::MatrixXd X(2, X_frame.GetSize() - num_disabled);
   Eigen::MatrixXd Y(2, Y_frame.GetSize() - num_disabled);
   int idx = 0;
@@ -306,7 +304,7 @@ void ICP::RunGICPPCL() {
   t_end_ = std::chrono::system_clock::now();
   /*******************************************/
   std::chrono::duration<double> t_reg = t_end_ - t_start_;
-  std::cout << "Takes " << t_reg.count() << " sec..." << std::endl;
+  std::cout << "ICP Takes " << t_reg.count() << " sec..." << std::endl;
 
   // Set outputs
   Eigen::Matrix4f src2tgt = gicp.getFinalTransformation();

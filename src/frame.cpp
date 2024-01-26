@@ -83,9 +83,6 @@ void Frame::ReserveSize(unsigned int size) { points_.resize(2, size); }
 ////////////////////////////////
 // Downsampling
 void Frame::RandomDownsample(double ratio) {
-  // print number of points before downsampling
-  ROS_INFO("frame size before downsampling: %ld", points_.cols());
-
   // set disabled_ to all false
   SetAllPointsDisabled(false);
 
@@ -116,7 +113,7 @@ void Frame::RandomDownsample(double ratio) {
   disabled_ = new_disabled;
 
   // print number of points after downsampling
-  ROS_INFO("frame size after downsampling: %ld", points_.cols());
+  std::cout << "frame size after downsampling: " << points_.cols() << std::endl;
 }
 
 ////////////////////////////////
