@@ -27,8 +27,10 @@ class ICP {
   std::vector<double> errors_;           // recent 10 errors
   double error_stdev_threshold_ = 0.01;  // standard deviation of recent 10 errors
 
-  // Time
+  // Evaluation
   std::chrono::system_clock::time_point t_start_, t_end_, t_start_total_, t_end_total_;
+  std::vector<double> times_;  // recent 10 times
+  std::vector<double> error_;
 
  public:
   ICP();
@@ -42,7 +44,7 @@ class ICP {
   void RunICP();
   void FindAlignment(Frame& X, Frame& Y, Eigen::Matrix3d& Result);
 
-  void RunHeightICP();
+  double RunHeightICP();
   void FindHeightAlignment(Frame& X, Frame& Y, Eigen::Matrix3d& Result);
 
   // PCL ICP algorithm

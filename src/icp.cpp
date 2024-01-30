@@ -46,9 +46,28 @@ void ICP::PointCloudCallbackForEvaluation(const sensor_msgs::PointCloud2::ConstP
   } else if (F2_.GetSize() == 0) {
     F2_ = Frame(point_cloud_msg);
     VisualizeFrame(marker_pub_, F2_, 1);
-    for (int i = 0; i < 10; i++) {
-      RunHeightICP();
+    for (int i = 0; i < 100; i++) {
+      std::chrono::system_clock::time_point t_start = std::chrono::system_clock::now();
+      double err = RunHeightICP();
+      std::chrono::system_clock::time_point t_end = std::chrono::system_clock::now();
+      std::chrono::duration<double> t_reg = t_end - t_start;
+      times_.push_back(t_reg.count());
+      error_.push_back(err);
+      std::cout << "Takes " << t_reg.count() << " sec..." << std::endl;
+      std::cout << "Error: " << err << std::endl;
     }
+    std::cout << "==========Evaluation==========\n";
+    double time_mean = std::accumulate(times_.begin(), times_.end(), 0.0) / times_.size();
+    double error_mean = std::accumulate(error_.begin(), error_.end(), 0.0) / error_.size();
+    std::cout << "Mean time: " << time_mean << " sec..." << std::endl;
+    std::cout << "Mean error: " << error_mean << std::endl;
+    // stddev
+    double time_sq_sum = std::inner_product(times_.begin(), times_.end(), times_.begin(), 0.0);
+    double time_stdev = std::sqrt(time_sq_sum / times_.size() - time_mean * time_mean);
+    double error_sq_sum = std::inner_product(error_.begin(), error_.end(), error_.begin(), 0.0);
+    double error_stdev = std::sqrt(error_sq_sum / error_.size() - error_mean * error_mean);
+    std::cout << "Time stdev: " << time_stdev << " sec..." << std::endl;
+    std::cout << "Error stdev: " << error_stdev << std::endl;
   }
 }
 
@@ -251,7 +270,7 @@ void ICP::FindAlignment(Frame& X_frame, Frame& Y_frame, Eigen::Matrix3d& result)
   // VisualizeCentroid(marker_pub_, X_centroid_tf, X_frame.GetTimestamp(), 2);
 }
 
-void ICP::RunHeightICP() {
+double ICP::RunHeightICP() {
   /// \brief 2D HeightGrid ICP algorithm. F2 is transformed to F1.
 
   // Initialization
@@ -270,7 +289,6 @@ void ICP::RunHeightICP() {
   errors_.clear();
 
   // Start ICP loop
-  t_start_ = std::chrono::system_clock::now();
   for (int iter = 0; iter < max_iter; iter++) {
     // If ctrl+c is pressed, stop quickly
     if (!ros::ok()) {
@@ -357,10 +375,8 @@ void ICP::RunHeightICP() {
     }
   }
 
-  t_end_ = std::chrono::system_clock::now();
-  std::chrono::duration<double> t_reg = t_end_ - t_start_;
-  std::cout << "Takes " << t_reg.count() << " sec..." << std::endl;
   std::cout << "err: " << err << std::endl;
+  return err;
 }
 
 void ICP::FindHeightAlignment(Frame& X_frame, Frame& Y_frame, Eigen::Matrix3d& result) {
