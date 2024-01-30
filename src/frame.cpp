@@ -11,8 +11,8 @@ Frame::Frame(const sensor_msgs::PointCloud2::ConstPtr& point_cloud_msg) {
   // make 10 x 10 grid with resolution of 0.2 meter
   timestamp_ = point_cloud_msg->header.stamp.toSec();
   resolution_ = 0.2;
-  width_ = 1024;
-  height_ = 1024;
+  map_width_ = 1024;
+  map_height_ = 1024;
   min_points_per_voxel_ = 2;
 
   ////////////////////////////////
@@ -29,10 +29,12 @@ Frame::Frame(const sensor_msgs::PointCloud2::ConstPtr& point_cloud_msg) {
 
   // set points
   points_.resize(2, lines.size());
+  heights_.resize(lines.size());
   for (int i = 0; i < lines.size(); i++) {
     // We are sure there are no 2 points with the same x, y value, since we have avoided it in ExtractLine().
     points_(0, i) = lines[i].first.x;
     points_(1, i) = lines[i].first.y;
+    heights_(i) = lines[i].second.z - lines[i].first.z;
   }
 
   // set disabled_
@@ -47,9 +49,10 @@ Frame::Frame(const sensor_msgs::PointCloud2::ConstPtr& point_cloud_msg) {
 Frame::Frame(const Frame& other) {
   timestamp_ = other.timestamp_;
   resolution_ = other.resolution_;
-  width_ = other.width_;
-  height_ = other.height_;
+  map_width_ = other.map_width_;
+  map_height_ = other.map_height_;
   points_ = other.points_;
+  heights_ = other.heights_;
   disabled_ = other.disabled_;
 }
 
@@ -57,11 +60,12 @@ Frame::Frame(const Frame& other) {
 // Getters
 time_t Frame::GetTimestamp() { return timestamp_; }
 double Frame::GetResolution() { return resolution_; }
-unsigned int Frame::GetWidth() { return width_; }
-unsigned int Frame::GetHeight() { return height_; }
+unsigned int Frame::GetMapWidth() { return map_width_; }
+unsigned int Frame::GetMapHeight() { return map_height_; }
 unsigned int Frame::GetSize() { return points_.cols(); }
 Eigen::MatrixXd Frame::GetPoints() { return points_; }
 Eigen::Vector2d Frame::GetOnePoint(unsigned int idx) { return points_.col(idx); }
+double Frame::GetOneHeight(unsigned int idx) { return heights_(idx); }
 Eigen::VectorXi Frame::GetDisabled() { return disabled_; }
 bool Frame::GetOnePointDisabled(unsigned int idx) { return disabled_(idx); }
 
@@ -69,8 +73,8 @@ bool Frame::GetOnePointDisabled(unsigned int idx) { return disabled_(idx); }
 // Setters
 void Frame::SetTimestamp(time_t timestamp) { timestamp_ = timestamp; }
 void Frame::SetResolution(double resolution) { resolution_ = resolution; }
-void Frame::SetWidth(unsigned int width) { width_ = width; }
-void Frame::SetHeight(unsigned int height) { height_ = height; }
+void Frame::SetMapWidth(unsigned int width) { map_width_ = width; }
+void Frame::SetMapHeight(unsigned int height) { map_height_ = height; }
 void Frame::SetPoints(Eigen::MatrixXd points) { points_ = points; }
 void Frame::SetOnePoint(unsigned int idx, Eigen::Vector2d point) {
   points_(0, idx) = point(0);

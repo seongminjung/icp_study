@@ -27,11 +27,12 @@ class Frame {
  private:
   time_t timestamp_;
   float resolution_ = 0.2;      // meter per pixel
-  unsigned int width_ = 1024;   // total width of the frame
-  unsigned int height_ = 1024;  // total height of the frame
+  unsigned int map_width_ = 1024;   // total width of the frame
+  unsigned int map_height_ = 1024;  // total height of the frame
   unsigned int min_points_per_voxel_ = 2;
 
   Eigen::MatrixXd points_;  // 2 x N
+  Eigen::VectorXd heights_;   // 1 x N
   Eigen::VectorXi disabled_;  // 1 x N
 
   // Converters
@@ -46,19 +47,20 @@ class Frame {
   // Getters
   time_t GetTimestamp();
   double GetResolution();
-  unsigned int GetWidth();
-  unsigned int GetHeight();
+  unsigned int GetMapWidth();
+  unsigned int GetMapHeight();
   unsigned int GetSize();
   Eigen::MatrixXd GetPoints();  // 2 x N
   Eigen::Vector2d GetOnePoint(unsigned int idx);
+  double GetOneHeight(unsigned int idx);
   Eigen::VectorXi GetDisabled();
   bool GetOnePointDisabled(unsigned int idx);
 
   // Setters
   void SetTimestamp(time_t timestamp);
   void SetResolution(double resolution);
-  void SetWidth(unsigned int width);
-  void SetHeight(unsigned int height);
+  void SetMapWidth(unsigned int width);
+  void SetMapHeight(unsigned int height);
   void SetPoints(Eigen::MatrixXd points);  // 2 x N
   void SetOnePoint(unsigned int idx, Eigen::Vector2d point);
   void SetAllPointsDisabled(bool disabled);

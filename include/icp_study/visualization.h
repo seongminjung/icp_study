@@ -70,7 +70,7 @@ void VisualizeFrame(ros::Publisher marker_pub, Frame& frame, int color) {
   for (int i = 0; i < frame.GetSize(); i++) {
     double x = frame.GetOnePoint(i)(0);
     double y = frame.GetOnePoint(i)(1);
-    // double height = height_grid.GetCells()[i].height;
+    // double height = map_height_grid.GetCells()[i].height;
 
     bool disabled = frame.GetOnePointDisabled(i);
 

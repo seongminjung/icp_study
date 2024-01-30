@@ -38,6 +38,9 @@ class ICP {
   void RunICP();
   void FindAlignment(Frame& X, Frame& Y, Eigen::Matrix3d& Result);
 
+  void RunHeightICP();
+  void FindHeightAlignment(Frame& X, Frame& Y, Eigen::Matrix3d& Result);
+
   // PCL ICP algorithm
   void PointCloudCallbackForPCL(const sensor_msgs::PointCloud2::ConstPtr& point_cloud_msg);
   void RunICPPCL();
