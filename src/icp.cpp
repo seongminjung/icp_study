@@ -15,27 +15,27 @@
 
 ICP::ICP() {
   marker_pub_ = nh_.advertise<visualization_msgs::MarkerArray>("visualization_marker/frame", 1);
-  point_cloud_sub_ = nh_.subscribe("/kitti/velo/pointcloud", 1, &ICP::PointCloudCallbackForEvaluation, this);
+  point_cloud_sub_ = nh_.subscribe("/kitti/velo/pointcloud", 1, &ICP::PointCloudCallback, this);
 }
 
 void ICP::PointCloudCallback(const sensor_msgs::PointCloud2::ConstPtr& point_cloud_msg) {
   if (F1_.GetSize() == 0) {
-    t_start_total_ = std::chrono::system_clock::now();
     F1_ = Frame(point_cloud_msg);
     VisualizeFrame(marker_pub_, F1_, 0);
   } else if (F2_.GetSize() == 0) {
     F2_ = Frame(point_cloud_msg);
     VisualizeFrame(marker_pub_, F2_, 1);
-    RunICP();
-    t_end_total_ = std::chrono::system_clock::now();
-    std::chrono::duration<double> t_total = t_end_total_ - t_start_total_;
-    std::cout << "Total time: " << t_total.count() << " sec..." << std::endl;
+    RunHeightICP();
   } else {
     F1_ = F2_;
     VisualizeFrame(marker_pub_, F1_, 0);
     F2_ = Frame(point_cloud_msg);
     VisualizeFrame(marker_pub_, F2_, 1);
-    RunICP();
+    std::chrono::system_clock::time_point t_start = std::chrono::system_clock::now();
+    RunHeightICP();
+    std::chrono::system_clock::time_point t_end = std::chrono::system_clock::now();
+    std::chrono::duration<double> t_reg = t_end - t_start;
+    std::cout << "Takes " << t_reg.count() << " sec..." << std::endl;
   }
 }
 
@@ -356,8 +356,8 @@ double ICP::RunHeightICP() {
       X_Downsampled.SetOnePointDisabled(dist_vector[i].first, true);
     }
 
-    // VisualizeLineBetweenMatchingPoints(marker_pub_, X_Downsampled, Y);
-    // VisualizeFrame(marker_pub_, X, 2);
+    VisualizeLineBetweenMatchingPoints(marker_pub_, X_Downsampled, Y);
+    VisualizeFrame(marker_pub_, X, 2);
 
     Eigen::Matrix3d result;
     FindHeightAlignment(X_Downsampled, Y, result);  // left top 2x2: R, right top 2x1: t, left bottom 1x1: err
