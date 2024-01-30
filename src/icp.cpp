@@ -46,28 +46,33 @@ void ICP::PointCloudCallbackForEvaluation(const sensor_msgs::PointCloud2::ConstP
   } else if (F2_.GetSize() == 0) {
     F2_ = Frame(point_cloud_msg);
     VisualizeFrame(marker_pub_, F2_, 1);
-    for (int i = 0; i < 100; i++) {
+    for (int i = 0; i < 1000; i++) {
       std::chrono::system_clock::time_point t_start = std::chrono::system_clock::now();
       double err = RunHeightICP();
       std::chrono::system_clock::time_point t_end = std::chrono::system_clock::now();
       std::chrono::duration<double> t_reg = t_end - t_start;
       times_.push_back(t_reg.count());
       error_.push_back(err);
-      std::cout << "Takes " << t_reg.count() << " sec..." << std::endl;
-      std::cout << "Error: " << err << std::endl;
+
+      // Simple progress bar
+      if (i % 10 == 0) {
+        std::cout << "*";
+        std::cout.flush();
+      }
     }
     std::cout << "==========Evaluation==========\n";
     double time_mean = std::accumulate(times_.begin(), times_.end(), 0.0) / times_.size();
     double error_mean = std::accumulate(error_.begin(), error_.end(), 0.0) / error_.size();
-    std::cout << "Mean time: " << time_mean << " sec..." << std::endl;
-    std::cout << "Mean error: " << error_mean << std::endl;
     // stddev
     double time_sq_sum = std::inner_product(times_.begin(), times_.end(), times_.begin(), 0.0);
     double time_stdev = std::sqrt(time_sq_sum / times_.size() - time_mean * time_mean);
     double error_sq_sum = std::inner_product(error_.begin(), error_.end(), error_.begin(), 0.0);
     double error_stdev = std::sqrt(error_sq_sum / error_.size() - error_mean * error_mean);
+    std::cout << "Time mean: " << time_mean << " sec..." << std::endl;
     std::cout << "Time stdev: " << time_stdev << " sec..." << std::endl;
+    std::cout << "Error mean: " << error_mean << std::endl;
     std::cout << "Error stdev: " << error_stdev << std::endl;
+    std::cout << "==============================\n";
   }
 }
 
@@ -319,10 +324,10 @@ double ICP::RunHeightICP() {
                            pow(X_Downsampled.GetOnePoint(i)(1) - F1_.GetOnePoint(j)(1), 2));  // Euclidean distance
         if (dist < min_dist) {
           // Update only when height is similar
-          if (abs(X_Downsampled.GetOneHeight(i) - F1_.GetOneHeight(j)) < 1) {
-            min_dist = dist;
-            min_idx = j;
-          }
+          // if (abs(X_Downsampled.GetOneHeight(i) - F1_.GetOneHeight(j)) < 1) {
+          min_dist = dist;
+          min_idx = j;
+          // }
         }
       }
       dist_vector.emplace_back(i, min_dist);
@@ -375,7 +380,7 @@ double ICP::RunHeightICP() {
     }
   }
 
-  std::cout << "err: " << err << std::endl;
+  // std::cout << "err: " << err << std::endl;
   return err;
 }
 
