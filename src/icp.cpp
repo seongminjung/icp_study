@@ -15,7 +15,7 @@
 
 ICP::ICP() {
   marker_pub_ = nh_.advertise<visualization_msgs::MarkerArray>("visualization_marker/frame", 1);
-  point_cloud_sub_ = nh_.subscribe("/kitti/velo/pointcloud", 1, &ICP::PointCloudCallback, this);
+  point_cloud_sub_ = nh_.subscribe("/kitti/velo/pointcloud", 1, &ICP::PointCloudCallbackForEvaluation, this);
 }
 
 void ICP::PointCloudCallback(const sensor_msgs::PointCloud2::ConstPtr& point_cloud_msg) {
@@ -36,6 +36,19 @@ void ICP::PointCloudCallback(const sensor_msgs::PointCloud2::ConstPtr& point_clo
     F2_ = Frame(point_cloud_msg);
     VisualizeFrame(marker_pub_, F2_, 1);
     RunICP();
+  }
+}
+
+void ICP::PointCloudCallbackForEvaluation(const sensor_msgs::PointCloud2::ConstPtr& point_cloud_msg) {
+  if (F1_.GetSize() == 0) {
+    F1_ = Frame(point_cloud_msg);
+    VisualizeFrame(marker_pub_, F1_, 0);
+  } else if (F2_.GetSize() == 0) {
+    F2_ = Frame(point_cloud_msg);
+    VisualizeFrame(marker_pub_, F2_, 1);
+    for (int i = 0; i < 10; i++) {
+      RunHeightICP();
+    }
   }
 }
 
@@ -79,7 +92,7 @@ void ICP::RunICP() {
       break;
     }
 
-    std::printf("==========iter: %d==========\n", iter);
+    // std::printf("==========iter: %d==========\n", iter);
 
     Frame X_Downsampled(X);
     Frame Y;
@@ -87,7 +100,7 @@ void ICP::RunICP() {
     X_Downsampled.RandomDownsample(0.05);  // Randomly subsample 5% from X
     Y.ReserveSize(X_Downsampled.GetSize());
 
-    std::printf("X_Downsampled size: %d\n", X_Downsampled.GetSize());
+    // std::printf("X_Downsampled size: %d\n", X_Downsampled.GetSize());
 
     std::vector<std::pair<int, double>> dist_vector;  // <index of X_Downsampled, distance>
     dist_vector.reserve(X_Downsampled.GetSize());
@@ -137,9 +150,9 @@ void ICP::RunICP() {
     VisualizeFrame(marker_pub_, X, 2);
 
     // Print R, t, err
-    std::cout << "R: " << std::endl << R << std::endl;
-    std::cout << "t: " << std::endl << t << std::endl;
-    std::cout << "err: " << err << std::endl;
+    // std::cout << "R: " << std::endl << R << std::endl;
+    // std::cout << "t: " << std::endl << t << std::endl;
+    // std::cout << "err: " << err << std::endl;
 
     // Check convergence
     errors_.push_back(err);
@@ -149,9 +162,9 @@ void ICP::RunICP() {
     double error_mean = std::accumulate(errors_.begin(), errors_.end(), 0.0) / errors_.size();
     double error_sq_sum = std::inner_product(errors_.begin(), errors_.end(), errors_.begin(), 0.0);
     double error_stdev = std::sqrt(error_sq_sum / errors_.size() - error_mean * error_mean);
-    std::printf("error_stdev: %f\n", error_stdev);
+    // std::printf("error_stdev: %f\n", error_stdev);
     if (errors_.size() == 10 && error_stdev < error_stdev_threshold_) {
-      std::printf("Converged!\n");
+      // std::printf("Converged!\n");
       break;
     }
   }
@@ -264,7 +277,7 @@ void ICP::RunHeightICP() {
       break;
     }
 
-    std::printf("==========iter: %d==========\n", iter);
+    // std::printf("==========iter: %d==========\n", iter);
 
     Frame X_Downsampled(X);
     Frame Y;
@@ -272,7 +285,7 @@ void ICP::RunHeightICP() {
     X_Downsampled.RandomDownsample(0.05);  // Randomly subsample 5% from X
     Y.ReserveSize(X_Downsampled.GetSize());
 
-    std::printf("X_Downsampled size: %d\n", X_Downsampled.GetSize());
+    // std::printf("X_Downsampled size: %d\n", X_Downsampled.GetSize());
 
     std::vector<std::pair<int, double>> dist_vector;  // <index of X_Downsampled, distance>
     dist_vector.reserve(X_Downsampled.GetSize());
@@ -288,7 +301,7 @@ void ICP::RunHeightICP() {
                            pow(X_Downsampled.GetOnePoint(i)(1) - F1_.GetOnePoint(j)(1), 2));  // Euclidean distance
         if (dist < min_dist) {
           // Update only when height is similar
-          if (abs(X_Downsampled.GetOneHeight(i) - F1_.GetOneHeight(j)) < 0.5) {
+          if (abs(X_Downsampled.GetOneHeight(i) - F1_.GetOneHeight(j)) < 1) {
             min_dist = dist;
             min_idx = j;
           }
@@ -325,9 +338,9 @@ void ICP::RunHeightICP() {
     VisualizeFrame(marker_pub_, X, 2);
 
     // Print R, t, err
-    std::cout << "R: " << std::endl << R << std::endl;
-    std::cout << "t: " << std::endl << t << std::endl;
-    std::cout << "err: " << err << std::endl;
+    // std::cout << "R: " << std::endl << R << std::endl;
+    // // std::cout << "t: " << std::endl << t << std::endl;
+    // std::cout << "err: " << err << std::endl;
 
     // Check convergence
     errors_.push_back(err);
@@ -337,9 +350,9 @@ void ICP::RunHeightICP() {
     double error_mean = std::accumulate(errors_.begin(), errors_.end(), 0.0) / errors_.size();
     double error_sq_sum = std::inner_product(errors_.begin(), errors_.end(), errors_.begin(), 0.0);
     double error_stdev = std::sqrt(error_sq_sum / errors_.size() - error_mean * error_mean);
-    std::printf("error_stdev: %f\n", error_stdev);
+    // std::printf("error_stdev: %f\n", error_stdev);
     if (errors_.size() == 10 && error_stdev < error_stdev_threshold_) {
-      std::printf("Converged!\n");
+      // std::printf("Converged!\n");
       break;
     }
   }
@@ -347,6 +360,7 @@ void ICP::RunHeightICP() {
   t_end_ = std::chrono::system_clock::now();
   std::chrono::duration<double> t_reg = t_end_ - t_start_;
   std::cout << "Takes " << t_reg.count() << " sec..." << std::endl;
+  std::cout << "err: " << err << std::endl;
 }
 
 void ICP::FindHeightAlignment(Frame& X_frame, Frame& Y_frame, Eigen::Matrix3d& result) {

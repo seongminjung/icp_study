@@ -39,11 +39,6 @@ Frame::Frame(const sensor_msgs::PointCloud2::ConstPtr& point_cloud_msg) {
 
   // set disabled_
   disabled_ = Eigen::VectorXi::Zero(points_.cols());
-
-  // print number of pointcloud points and frame points
-  ROS_INFO("pointcloud timestamp: %f", point_cloud_msg->header.stamp.toSec());
-  ROS_INFO("pointcloud size: %ld", ptr_cloud->points.size());
-  ROS_INFO("frame size: %ld", points_.cols());
 }
 
 Frame::Frame(const Frame& other) {
@@ -117,7 +112,7 @@ void Frame::RandomDownsample(double ratio) {
   disabled_ = new_disabled;
 
   // print number of points after downsampling
-  std::cout << "frame size after downsampling: " << points_.cols() << std::endl;
+  // std::cout << "frame size after downsampling: " << points_.cols() << std::endl;
 }
 
 ////////////////////////////////
