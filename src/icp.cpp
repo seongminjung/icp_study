@@ -332,6 +332,7 @@ double ICP::RunHeightICP() {
       }
       dist_vector.emplace_back(i, min_dist);
       Y.SetOnePoint(i, F1_.GetOnePoint(min_idx));
+      Y.SetOneHeight(i, F1_.GetOneHeight(min_idx));
     }
 
     // sort dist_vector by distance
@@ -402,37 +403,35 @@ void ICP::FindHeightAlignment(Frame& X_frame, Frame& Y_frame, Eigen::Matrix3d& r
   int num_disabled = X_frame.GetDisabled().sum();
   Eigen::MatrixXd X(2, X_frame.GetSize() - num_disabled);
   Eigen::MatrixXd Y(2, Y_frame.GetSize() - num_disabled);
+  Eigen::VectorXd X_height(X_frame.GetSize() - num_disabled);
+  Eigen::VectorXd Y_height(Y_frame.GetSize() - num_disabled);
+
   int idx = 0;
   for (int i = 0; i < X_frame.GetSize(); i++) {
     if (!X_frame.GetOnePointDisabled(i)) {
       X.col(idx) = X_frame.GetOnePoint(i);
       Y.col(idx) = Y_frame.GetOnePoint(i);
+      X_height(idx) = X_frame.GetOneHeight(i);
+      Y_height(idx) = Y_frame.GetOneHeight(i);
       idx++;
     }
   }
 
   unsigned int N = X.cols();
 
-  // Seperate coordinates and height
-  // Eigen::MatrixXd X = X_matrix.block(0, 0, 2, N);
-  // Eigen::MatrixXd Y = Y_matrix.block(0, 0, 2, N);
-  // Eigen::VectorXd X_height = X_matrix.block(2, 0, 1, N).transpose();
-  // Eigen::VectorXd Y_height = Y_matrix.block(2, 0, 1, N).transpose();
-
   // Compute the centroid of X and Y
   Eigen::Vector2d X_centroid = X.rowwise().mean();
   Eigen::Vector2d Y_centroid = Y.rowwise().mean();
 
   // Compute average height of X and Y
-  // Eigen::VectorXd Height = (X_height + Y_height) / 2;
+  Eigen::VectorXd Height = (X_height + Y_height) / 2;
 
   // Compute the demeaned X and Y
   Eigen::MatrixXd X_demeaned = X - X_centroid * Eigen::MatrixXd::Ones(1, N);
   Eigen::MatrixXd Y_demeaned = Y - Y_centroid * Eigen::MatrixXd::Ones(1, N);
 
   // Compute the covariance matrix including height
-  // Eigen::Matrix2d H = X_demeaned * Height.asDiagonal() * Y_demeaned.transpose();
-  Eigen::Matrix2d H = X_demeaned * Y_demeaned.transpose();
+  Eigen::Matrix2d H = X_demeaned * Height.asDiagonal() * Y_demeaned.transpose();
 
   // Compute the SVD of H
   Eigen::JacobiSVD<Eigen::MatrixXd> svd(H, Eigen::ComputeFullU | Eigen::ComputeFullV);
@@ -453,12 +452,6 @@ void ICP::FindHeightAlignment(Frame& X_frame, Frame& Y_frame, Eigen::Matrix3d& r
   result.block<2, 2>(0, 0) = R;
   result.block<2, 1>(0, 2) = t;
   result(2, 0) = err;
-
-  // Visualize centroid of X, Y, and converted X
-  // VisualizeCentroid(marker_pub_, Y_centroid, X_frame.GetTimestamp(), 0);
-  // VisualizeCentroid(marker_pub_, X_centroid, X_frame.GetTimestamp(), 1);
-  // Eigen::Vector2d X_centroid_tf = R * X_centroid + t;
-  // VisualizeCentroid(marker_pub_, X_centroid_tf, X_frame.GetTimestamp(), 2);
 }
 
 void ICP::RunICPPCL() {

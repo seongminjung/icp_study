@@ -52,6 +52,7 @@ class Frame {
   unsigned int GetSize();
   Eigen::MatrixXd GetPoints();  // 2 x N
   Eigen::Vector2d GetOnePoint(unsigned int idx);
+  Eigen::VectorXd GetHeights();  // 1 x N
   double GetOneHeight(unsigned int idx);
   Eigen::VectorXi GetDisabled();
   bool GetOnePointDisabled(unsigned int idx);
@@ -63,6 +64,7 @@ class Frame {
   void SetMapHeight(unsigned int height);
   void SetPoints(Eigen::MatrixXd points);  // 2 x N
   void SetOnePoint(unsigned int idx, Eigen::Vector2d point);
+  void SetOneHeight(unsigned int idx, double height);
   void SetAllPointsDisabled(bool disabled);
   void SetOnePointDisabled(unsigned int idx, bool disabled);
   void ReserveSize(unsigned int size);

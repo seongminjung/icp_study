@@ -60,6 +60,7 @@ unsigned int Frame::GetMapHeight() { return map_height_; }
 unsigned int Frame::GetSize() { return points_.cols(); }
 Eigen::MatrixXd Frame::GetPoints() { return points_; }
 Eigen::Vector2d Frame::GetOnePoint(unsigned int idx) { return points_.col(idx); }
+Eigen::VectorXd Frame::GetHeights() { return heights_; }
 double Frame::GetOneHeight(unsigned int idx) { return heights_(idx); }
 Eigen::VectorXi Frame::GetDisabled() { return disabled_; }
 bool Frame::GetOnePointDisabled(unsigned int idx) { return disabled_(idx); }
@@ -75,9 +76,14 @@ void Frame::SetOnePoint(unsigned int idx, Eigen::Vector2d point) {
   points_(0, idx) = point(0);
   points_(1, idx) = point(1);
 }
+void Frame::SetOneHeight(unsigned int idx, double height) { heights_(idx) = height; }
 void Frame::SetAllPointsDisabled(bool disabled) { disabled_ = Eigen::VectorXi::Ones(points_.cols()) * disabled; }
 void Frame::SetOnePointDisabled(unsigned int idx, bool disabled) { disabled_(idx) = disabled; }
-void Frame::ReserveSize(unsigned int size) { points_.resize(2, size); }
+void Frame::ReserveSize(unsigned int size) {
+  points_.resize(2, size);
+  heights_.resize(size);
+  disabled_.resize(size);
+}
 
 ////////////////////////////////
 // Downsampling
