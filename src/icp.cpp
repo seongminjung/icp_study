@@ -42,10 +42,10 @@ void ICP::PointCloudCallback(const sensor_msgs::PointCloud2::ConstPtr& point_clo
 void ICP::PointCloudCallbackForEvaluation(const sensor_msgs::PointCloud2::ConstPtr& point_cloud_msg) {
   if (F1_.GetSize() == 0) {
     F1_ = Frame(point_cloud_msg);
-    VisualizeFrame(marker_pub_, F1_, 0);
+    // VisualizeFrame(marker_pub_, F1_, 0);
   } else if (F2_.GetSize() == 0) {
     F2_ = Frame(point_cloud_msg);
-    VisualizeFrame(marker_pub_, F2_, 1);
+    // VisualizeFrame(marker_pub_, F2_, 1);
     for (int i = 0; i < 1000; i++) {
       std::chrono::system_clock::time_point t_start = std::chrono::system_clock::now();
       double err = RunHeightICP();
@@ -68,11 +68,23 @@ void ICP::PointCloudCallbackForEvaluation(const sensor_msgs::PointCloud2::ConstP
     double time_stdev = std::sqrt(time_sq_sum / times_.size() - time_mean * time_mean);
     double error_sq_sum = std::inner_product(error_.begin(), error_.end(), error_.begin(), 0.0);
     double error_stdev = std::sqrt(error_sq_sum / error_.size() - error_mean * error_mean);
+    // median
+    std::sort(times_.begin(), times_.end());
+    double time_median = times_[times_.size() / 2];
     std::cout << "Time mean: " << time_mean << " sec..." << std::endl;
     std::cout << "Time stdev: " << time_stdev << " sec..." << std::endl;
+    std::cout << "Time median: " << time_median << " sec..." << std::endl;
     std::cout << "Error mean: " << error_mean << std::endl;
     std::cout << "Error stdev: " << error_stdev << std::endl;
     std::cout << "==============================\n";
+
+    // print times_ in time.csv file
+    std::ofstream time_file;
+    time_file.open("time.csv");  // ~/.ros/time.csv
+    for (int i = 0; i < times_.size(); i++) {
+      time_file << times_[i] << std::endl;
+    }
+    time_file.close();
   }
 }
 
@@ -359,7 +371,7 @@ double ICP::RunHeightICP() {
 
     // Update X
     X.SetPoints(R * F2_.GetPoints() + t * Eigen::MatrixXd::Ones(1, N_F2));
-    VisualizeFrame(marker_pub_, X, 2);
+    // VisualizeFrame(marker_pub_, X, 2);
 
     // Print R, t, err
     // std::cout << "R: " << std::endl << R << std::endl;

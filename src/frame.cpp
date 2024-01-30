@@ -60,7 +60,6 @@ unsigned int Frame::GetMapHeight() { return map_height_; }
 unsigned int Frame::GetSize() { return points_.cols(); }
 Eigen::MatrixXd Frame::GetPoints() { return points_; }
 Eigen::Vector2d Frame::GetOnePoint(unsigned int idx) { return points_.col(idx); }
-Eigen::VectorXd Frame::GetHeights() { return heights_; }
 double Frame::GetOneHeight(unsigned int idx) { return heights_(idx); }
 Eigen::VectorXi Frame::GetDisabled() { return disabled_; }
 bool Frame::GetOnePointDisabled(unsigned int idx) { return disabled_(idx); }
