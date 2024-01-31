@@ -86,6 +86,8 @@ void VisualizeFrame(ros::Publisher marker_pub, Frame& frame, int color) {
       marker.ns = "frame_1";
     } else if (color == 2) {
       marker.ns = "frame_2";
+    } else if (color == 3) {
+      marker.ns = "map";
     }
     marker.id = i;
     // Set the marker type. Initially this is CUBE, and cycles between that and SPHERE, ARROW, and CYLINDER
@@ -95,7 +97,7 @@ void VisualizeFrame(ros::Publisher marker_pub, Frame& frame, int color) {
     // Set the pose of the marker. This is a full 6DOF pose relative to the frame/time specified in the header
     marker.pose.position.x = x;
     marker.pose.position.y = y;
-    marker.pose.position.z = -1.73;
+    marker.pose.position.z = 0;
     marker.pose.orientation.x = 0.0;
     marker.pose.orientation.y = 0.0;
     marker.pose.orientation.z = 0.0;
@@ -117,6 +119,10 @@ void VisualizeFrame(ros::Publisher marker_pub, Frame& frame, int color) {
     } else if (color == 2) {
       marker.color.r = 0;
       marker.color.g = 0;
+      marker.color.b = 1;
+    } else if (color == 3) {
+      marker.color.r = 1;
+      marker.color.g = 1;
       marker.color.b = 1;
     }
 
@@ -199,10 +205,10 @@ void VisualizeLineBetweenMatchingPoints(ros::Publisher marker_pub, Frame F1, Fra
     geometry_msgs::Point p1, p2;
     p1.x = x1;
     p1.y = y1;
-    p1.z = -1.73;
+    p1.z = 0;
     p2.x = x2;
     p2.y = y2;
-    p2.z = -1.73;
+    p2.z = 0;
     marker.points.push_back(p1);
     marker.points.push_back(p2);
 
@@ -237,7 +243,7 @@ void VisualizeCentroid(ros::Publisher marker_pub, Eigen::Vector2d centroid, time
   // Set the pose of the marker. This is a full 6DOF pose relative to the frame/time specified in the header
   marker.pose.position.x = centroid(0);
   marker.pose.position.y = centroid(1);
-  marker.pose.position.z = -1.73;
+  marker.pose.position.z = 0;
   marker.pose.orientation.x = 0.0;
   marker.pose.orientation.y = 0.0;
   marker.pose.orientation.z = 0.0;

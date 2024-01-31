@@ -21,6 +21,7 @@ ICP::ICP() {
 void ICP::PointCloudCallback(const sensor_msgs::PointCloud2::ConstPtr& point_cloud_msg) {
   if (F1_.GetSize() == 0) {
     F1_ = Frame(point_cloud_msg);
+    Map_ = F1_;
     VisualizeFrame(marker_pub_, F1_, 0);
   } else if (F2_.GetSize() == 0) {
     F2_ = Frame(point_cloud_msg);
@@ -392,6 +393,9 @@ double ICP::RunHeightICP() {
       break;
     }
   }
+
+  Map_.RegisterPointCloud(X);
+  VisualizeFrame(marker_pub_, Map_, 3);
 
   // std::cout << "err: " << err << std::endl;
   return err;

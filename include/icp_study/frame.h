@@ -26,12 +26,12 @@ struct voxel_index_idx {
 class Frame {
  private:
   time_t timestamp_;
-  float resolution_ = 0.2;      // meter per pixel
+  float resolution_ = 0.2;          // meter per pixel
   unsigned int map_width_ = 1024;   // total width of the frame
   unsigned int map_height_ = 1024;  // total height of the frame
   unsigned int min_points_per_voxel_ = 2;
 
-  Eigen::MatrixXd points_;  // 2 x N
+  Eigen::MatrixXd points_;    // 2 x N
   Eigen::VectorXd heights_;   // 1 x N
   Eigen::VectorXi disabled_;  // 1 x N
 
@@ -52,6 +52,7 @@ class Frame {
   unsigned int GetSize();
   Eigen::MatrixXd GetPoints();  // 2 x N
   Eigen::Vector2d GetOnePoint(unsigned int idx);
+  Eigen::VectorXd GetHeights();  // 1 x N
   double GetOneHeight(unsigned int idx);
   Eigen::VectorXi GetDisabled();
   bool GetOnePointDisabled(unsigned int idx);
@@ -77,6 +78,9 @@ class Frame {
                 unsigned int min_points_per_voxel);
   void ExtractLine(pcl::PointCloud<pcl::PointXYZ>& v_input,
                    std::vector<std::pair<pcl::PointXYZ, pcl::PointXYZ>>& output);
+
+  // Registering
+  void RegisterPointCloud(Frame& source_tf);
 };
 
 #endif  // FRAME_H

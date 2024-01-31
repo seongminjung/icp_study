@@ -60,6 +60,7 @@ unsigned int Frame::GetMapHeight() { return map_height_; }
 unsigned int Frame::GetSize() { return points_.cols(); }
 Eigen::MatrixXd Frame::GetPoints() { return points_; }
 Eigen::Vector2d Frame::GetOnePoint(unsigned int idx) { return points_.col(idx); }
+Eigen::VectorXd Frame::GetHeights() { return heights_; }
 double Frame::GetOneHeight(unsigned int idx) { return heights_(idx); }
 Eigen::VectorXi Frame::GetDisabled() { return disabled_; }
 bool Frame::GetOnePointDisabled(unsigned int idx) { return disabled_(idx); }
@@ -210,4 +211,32 @@ void Frame::ExtractLine(pcl::PointCloud<pcl::PointXYZ>& v_input,
       idx2++;
     }
   }
+}
+
+// Registering
+void Frame::RegisterPointCloud(Frame& source_tf) {
+  // For each point in source_tf, find there is any duplicate in this frame. If not, add the point, height, and disabled
+  // to this frame.
+  int duplicate_count = 0;
+  for (int i = 0; i < source_tf.GetSize(); i++) {
+    bool duplicate = false;
+    for (int j = 0; j < GetSize(); j++) {
+      // If there is a duplicate, break the loop. Duplicate means the x, y value is similar (half of resolution_)
+      if (fabs(GetOnePoint(j)(0) - source_tf.GetOnePoint(i)(0)) < resolution_ / 2 &&
+          fabs(GetOnePoint(j)(1) - source_tf.GetOnePoint(i)(1)) < resolution_ / 2) {
+        duplicate = true;
+        duplicate_count++;
+        break;
+      }
+    }
+    if (!duplicate) {
+      points_.conservativeResize(2, points_.cols() + 1);
+      heights_.conservativeResize(heights_.size() + 1);
+      disabled_.conservativeResize(disabled_.size() + 1);
+      SetOnePoint(points_.cols() - 1, source_tf.GetOnePoint(i));
+      SetOneHeight(heights_.size() - 1, source_tf.GetOneHeight(i));
+      SetOnePointDisabled(disabled_.size() - 1, source_tf.GetOnePointDisabled(i));
+    }
+  }
+  std::cout << "duplicate count: " << duplicate_count << std::endl;
 }
