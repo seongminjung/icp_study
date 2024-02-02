@@ -276,3 +276,106 @@ void VisualizeCentroid(ros::Publisher marker_pub, Eigen::Vector2d centroid, time
 
   marker_pub.publish(marker_array);
 }
+
+void VisualizePose(ros::Publisher marker_pub, Eigen::Matrix2d R, Eigen::Vector2d t, time_t timestamp) {
+  visualization_msgs::MarkerArray marker_array;
+  visualization_msgs::Marker marker;
+
+  marker = visualization_msgs::Marker();
+  // Set the frame ID and timestamp.
+  marker.header.frame_id = "velo_link";
+  marker.header.stamp = ros::Time(timestamp);
+  // Set the namespace and id for this marker. This serves to create a unique ID Any marker sent with the same
+  // namespace and id will overwrite the old one
+  marker.ns = "pose";
+
+  marker.id = 0;
+  // Set the marker type. Initially this is CUBE, and cycles between that and SPHERE, ARROW, and CYLINDER
+  marker.type = visualization_msgs::Marker::CUBE;
+  // Set the marker action. Options are ADD, DELETE, and new in ROS Indigo: 3 (DELETEALL)
+  marker.action = visualization_msgs::Marker::ADD;
+  // Set the pose of the marker. This is a full 6DOF pose relative to the frame/time specified in the header
+  marker.pose.position.x = t(0);
+  marker.pose.position.y = t(1);
+  marker.pose.position.z = 0;
+
+  // Make R 3x3
+  Eigen::Matrix3d R3;
+  R3 << R(0, 0), R(0, 1), 0, R(1, 0), R(1, 1), 0, 0, 0, 1;
+  Eigen::Quaterniond q(R3);
+
+  marker.pose.orientation.x = q.x();
+  marker.pose.orientation.y = q.y();
+  marker.pose.orientation.z = q.z();
+  marker.pose.orientation.w = q.w();
+
+  // Set the scale of the marker -- 1x1x1 here means 1m on a side
+  marker.scale.x = 1;
+  marker.scale.y = 0.5;
+  marker.scale.z = 0.5;
+
+  marker.color.r = 1;
+  marker.color.g = 0;
+  marker.color.b = 0;
+
+  marker.color.a = 0.5;
+
+  marker.lifetime = ros::Duration();
+
+  marker_array.markers.push_back(marker);
+
+  marker_pub.publish(marker_array);
+}
+
+void VisualizeArrow(ros::Publisher marker_pub, Eigen::Vector2d t_cur, Eigen::Vector2d t_prev) {
+  visualization_msgs::MarkerArray marker_array;
+  visualization_msgs::Marker marker;
+
+  marker = visualization_msgs::Marker();
+  // Set the frame ID and timestamp.
+  marker.header.frame_id = "velo_link";
+  marker.header.stamp = ros::Time::now();
+  // Set the namespace and id for this marker. This serves to create a unique ID Any marker sent with the same
+  // namespace and id will overwrite the old one
+  marker.ns = "arrow";
+
+  marker.id = ros::Time::now().nsec;
+  // Set the marker type. Initially this is CUBE, and cycles between that and SPHERE, ARROW, and CYLINDER
+  marker.type = visualization_msgs::Marker::ARROW;
+  // Set the marker action. Options are ADD, DELETE, and new in ROS Indigo: 3 (DELETEALL)
+  marker.action = visualization_msgs::Marker::ADD;
+  // Set the pose of the marker. This is a full 6DOF pose relative to the frame/time specified in the header
+  marker.pose.position.x = t_cur(0);
+  marker.pose.position.y = t_cur(1);
+  marker.pose.position.z = 0;
+
+  // Make R 3x3
+  Eigen::Vector2d diff = t_prev - t_cur;
+  double angle = atan2(diff(1), diff(0));
+
+  Eigen::Matrix3d R3;
+  R3 << cos(angle), -sin(angle), 0, sin(angle), cos(angle), 0, 0, 0, 1;
+  Eigen::Quaterniond q(R3);
+
+  marker.pose.orientation.x = q.x();
+  marker.pose.orientation.y = q.y();
+  marker.pose.orientation.z = q.z();
+  marker.pose.orientation.w = q.w();
+
+  // Set the scale of the marker -- 1x1x1 here means 1m on a side
+  marker.scale.x = diff.norm();
+  marker.scale.y = 0.2;
+  marker.scale.z = 0.2;
+
+  marker.color.r = 1;
+  marker.color.g = 0;
+  marker.color.b = 0;
+
+  marker.color.a = 0.5;
+
+  marker.lifetime = ros::Duration();
+
+  marker_array.markers.push_back(marker);
+
+  marker_pub.publish(marker_array);
+}

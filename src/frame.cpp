@@ -86,42 +86,6 @@ void Frame::ReserveSize(unsigned int size) {
 }
 
 ////////////////////////////////
-// Downsampling
-void Frame::RandomDownsample(double ratio) {
-  // set disabled_ to all false
-  SetAllPointsDisabled(false);
-
-  // set random seed
-  std::random_device rd;
-  std::mt19937 gen(rd());
-  std::uniform_real_distribution<> dis(0.0, 1.0);
-
-  // set disabled_ to true for ratio of points
-  for (int i = 0; i < points_.cols(); i++) {
-    if (dis(gen) > ratio) {
-      SetOnePointDisabled(i, true);
-    }
-  }
-
-  // Make new points_ and disabled_ with only enabled points
-  Eigen::MatrixXd new_points(2, points_.cols() - disabled_.sum());
-  Eigen::VectorXi new_disabled(points_.cols() - disabled_.sum());
-  int new_idx = 0;
-  for (int i = 0; i < points_.cols(); i++) {
-    if (!GetOnePointDisabled(i)) {
-      new_points.col(new_idx) = GetOnePoint(i);
-      new_disabled(new_idx) = GetOnePointDisabled(i);
-      new_idx++;
-    }
-  }
-  points_ = new_points;
-  disabled_ = new_disabled;
-
-  // print number of points after downsampling
-  // std::cout << "frame size after downsampling: " << points_.cols() << std::endl;
-}
-
-////////////////////////////////
 // Converters
 void Frame::SetIndexVector(pcl::PointCloud<pcl::PointXYZ>& input, double voxel_size) {
   index_vector.clear();
@@ -213,6 +177,49 @@ void Frame::ExtractLine(pcl::PointCloud<pcl::PointXYZ>& v_input,
   }
 }
 
+////////////////////////////////
+// Downsampling
+void Frame::RandomDownsample(double ratio) {
+  // set disabled_ to all false
+  SetAllPointsDisabled(false);
+
+  // set random seed
+  std::random_device rd;
+  std::mt19937 gen(rd());
+  std::uniform_real_distribution<> dis(0.0, 1.0);
+
+  // set disabled_ to true for ratio of points
+  for (int i = 0; i < points_.cols(); i++) {
+    if (dis(gen) > ratio) {
+      SetOnePointDisabled(i, true);
+    }
+  }
+
+  // Make new points_ and disabled_ with only enabled points
+  Eigen::MatrixXd new_points(2, points_.cols() - disabled_.sum());
+  Eigen::VectorXi new_disabled(points_.cols() - disabled_.sum());
+  int new_idx = 0;
+  for (int i = 0; i < points_.cols(); i++) {
+    if (!GetOnePointDisabled(i)) {
+      new_points.col(new_idx) = GetOnePoint(i);
+      new_disabled(new_idx) = GetOnePointDisabled(i);
+      new_idx++;
+    }
+  }
+  points_ = new_points;
+  disabled_ = new_disabled;
+
+  // print number of points after downsampling
+  // std::cout << "frame size after downsampling: " << points_.cols() << std::endl;
+}
+
+////////////////////////////////
+// Transformations
+void Frame::Transform(Eigen::Matrix2d R, Eigen::Vector2d t) {
+  points_ = R * points_ + t * Eigen::MatrixXd::Ones(1, points_.cols());
+}
+
+////////////////////////////////
 // Registering
 void Frame::RegisterPointCloud(Frame& source_tf) {
   // For each point in source_tf, find there is any duplicate in this frame. If not, add the point, height, and disabled

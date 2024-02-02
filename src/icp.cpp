@@ -22,19 +22,11 @@ ICP::ICP() {
 }
 
 void ICP::PointCloudCallback(const sensor_msgs::PointCloud2::ConstPtr& point_cloud_msg) {
-  if (F1_.GetSize() == 0) {
-    F1_ = Frame(point_cloud_msg);
-    Map_ = F1_;
-    VisualizeFrame(marker_pub_, F1_, 0);
-  } else if (F2_.GetSize() == 0) {
-    F2_ = Frame(point_cloud_msg);
-    VisualizeFrame(marker_pub_, F2_, 1);
-    RunHeightICP();
+  if (Map_.GetSize() == 0) {
+    Map_ = Frame(point_cloud_msg);
+    VisualizeFrame(marker_pub_, Map_, 3);
   } else {
-    F1_ = F2_;
-    VisualizeFrame(marker_pub_, F1_, 0);
-    F2_ = Frame(point_cloud_msg);
-    VisualizeFrame(marker_pub_, F2_, 1);
+    Source_ = Frame(point_cloud_msg);
     std::chrono::system_clock::time_point t_start = std::chrono::system_clock::now();
     RunHeightICP();
     std::chrono::system_clock::time_point t_end = std::chrono::system_clock::now();
@@ -43,54 +35,54 @@ void ICP::PointCloudCallback(const sensor_msgs::PointCloud2::ConstPtr& point_clo
   }
 }
 
-void ICP::PointCloudCallbackForEvaluation(const sensor_msgs::PointCloud2::ConstPtr& point_cloud_msg) {
-  if (F1_.GetSize() == 0) {
-    F1_ = Frame(point_cloud_msg);
-    // VisualizeFrame(marker_pub_, F1_, 0);
-  } else if (F2_.GetSize() == 0) {
-    F2_ = Frame(point_cloud_msg);
-    // VisualizeFrame(marker_pub_, F2_, 1);
-    for (int i = 0; i < 1000; i++) {
-      std::chrono::system_clock::time_point t_start = std::chrono::system_clock::now();
-      double err = RunHeightICP();
-      std::chrono::system_clock::time_point t_end = std::chrono::system_clock::now();
-      std::chrono::duration<double> t_reg = t_end - t_start;
-      times_.push_back(t_reg.count());
-      error_.push_back(err);
+// void ICP::PointCloudCallbackForEvaluation(const sensor_msgs::PointCloud2::ConstPtr& point_cloud_msg) {
+//   if (F1_.GetSize() == 0) {
+//     F1_ = Frame(point_cloud_msg);
+//     // VisualizeFrame(marker_pub_, F1_, 0);
+//   } else if (F2_.GetSize() == 0) {
+//     F2_ = Frame(point_cloud_msg);
+//     // VisualizeFrame(marker_pub_, F2_, 1);
+//     for (int i = 0; i < 1000; i++) {
+//       std::chrono::system_clock::time_point t_start = std::chrono::system_clock::now();
+//       double err = RunHeightICP();
+//       std::chrono::system_clock::time_point t_end = std::chrono::system_clock::now();
+//       std::chrono::duration<double> t_reg = t_end - t_start;
+//       times_.push_back(t_reg.count());
+//       error_.push_back(err);
 
-      // Simple progress bar
-      if (i % 10 == 0) {
-        std::cout << "*";
-        std::cout.flush();
-      }
-    }
-    std::cout << "==========Evaluation==========\n";
-    double time_mean = std::accumulate(times_.begin(), times_.end(), 0.0) / times_.size();
-    double error_mean = std::accumulate(error_.begin(), error_.end(), 0.0) / error_.size();
-    // stddev
-    double time_sq_sum = std::inner_product(times_.begin(), times_.end(), times_.begin(), 0.0);
-    double time_stdev = std::sqrt(time_sq_sum / times_.size() - time_mean * time_mean);
-    double error_sq_sum = std::inner_product(error_.begin(), error_.end(), error_.begin(), 0.0);
-    double error_stdev = std::sqrt(error_sq_sum / error_.size() - error_mean * error_mean);
-    // median
-    std::sort(times_.begin(), times_.end());
-    double time_median = times_[times_.size() / 2];
-    std::cout << "Time mean: " << time_mean << " sec..." << std::endl;
-    std::cout << "Time stdev: " << time_stdev << " sec..." << std::endl;
-    std::cout << "Time median: " << time_median << " sec..." << std::endl;
-    std::cout << "Error mean: " << error_mean << std::endl;
-    std::cout << "Error stdev: " << error_stdev << std::endl;
-    std::cout << "==============================\n";
+//       // Simple progress bar
+//       if (i % 10 == 0) {
+//         std::cout << "*";
+//         std::cout.flush();
+//       }
+//     }
+//     std::cout << "==========Evaluation==========\n";
+//     double time_mean = std::accumulate(times_.begin(), times_.end(), 0.0) / times_.size();
+//     double error_mean = std::accumulate(error_.begin(), error_.end(), 0.0) / error_.size();
+//     // stddev
+//     double time_sq_sum = std::inner_product(times_.begin(), times_.end(), times_.begin(), 0.0);
+//     double time_stdev = std::sqrt(time_sq_sum / times_.size() - time_mean * time_mean);
+//     double error_sq_sum = std::inner_product(error_.begin(), error_.end(), error_.begin(), 0.0);
+//     double error_stdev = std::sqrt(error_sq_sum / error_.size() - error_mean * error_mean);
+//     // median
+//     std::sort(times_.begin(), times_.end());
+//     double time_median = times_[times_.size() / 2];
+//     std::cout << "Time mean: " << time_mean << " sec..." << std::endl;
+//     std::cout << "Time stdev: " << time_stdev << " sec..." << std::endl;
+//     std::cout << "Time median: " << time_median << " sec..." << std::endl;
+//     std::cout << "Error mean: " << error_mean << std::endl;
+//     std::cout << "Error stdev: " << error_stdev << std::endl;
+//     std::cout << "==============================\n";
 
-    // print times_ in time.csv file
-    std::ofstream time_file;
-    time_file.open("time.csv");  // ~/.ros/time.csv
-    for (int i = 0; i < times_.size(); i++) {
-      time_file << times_[i] << std::endl;
-    }
-    time_file.close();
-  }
-}
+//     // print times_ in time.csv file
+//     std::ofstream time_file;
+//     time_file.open("time.csv");  // ~/.ros/time.csv
+//     for (int i = 0; i < times_.size(); i++) {
+//       time_file << times_[i] << std::endl;
+//     }
+//     time_file.close();
+//   }
+// }
 
 void ICP::PointCloudCallbackForPCL(const sensor_msgs::PointCloud2::ConstPtr& point_cloud_msg) {
   if (tgt == nullptr) {
@@ -106,113 +98,113 @@ void ICP::PointCloudCallbackForPCL(const sensor_msgs::PointCloud2::ConstPtr& poi
   }
 }
 
-void ICP::RunICP() {
-  /// \brief 2D HeightGrid ICP algorithm. F2 is transformed to F1.
+// void ICP::RunICP() {
+//   /// \brief 2D HeightGrid ICP algorithm. F2 is transformed to F1.
 
-  // Initialization
-  Eigen::Matrix2d R = Eigen::Matrix2d::Identity();  // rotation
-  Eigen::Vector2d t = Eigen::Vector2d::Zero();      // translation
-  double err = 0;                                   // error
+//   // Initialization
+//   Eigen::Matrix2d R = Eigen::Matrix2d::Identity();  // rotation
+//   Eigen::Vector2d t = Eigen::Vector2d::Zero();      // translation
+//   double err = 0;                                   // error
 
-  int max_iter = 100;
-  double thresh = 1e-5;
+//   int max_iter = 100;
+//   double thresh = 1e-5;
 
-  unsigned int N_F1 = F1_.GetSize();
-  unsigned int N_F2 = F2_.GetSize();
+//   unsigned int N_F1 = F1_.GetSize();
+//   unsigned int N_F2 = F2_.GetSize();
 
-  Frame X(F2_);
+//   Frame X(F2_);
 
-  errors_.clear();
+//   errors_.clear();
 
-  // Start ICP loop
-  t_start_ = std::chrono::system_clock::now();
-  for (int iter = 0; iter < max_iter; iter++) {
-    // If ctrl+c is pressed, stop quickly
-    if (!ros::ok()) {
-      break;
-    }
+//   // Start ICP loop
+//   t_start_ = std::chrono::system_clock::now();
+//   for (int iter = 0; iter < max_iter; iter++) {
+//     // If ctrl+c is pressed, stop quickly
+//     if (!ros::ok()) {
+//       break;
+//     }
 
-    // std::printf("==========iter: %d==========\n", iter);
+//     // std::printf("==========iter: %d==========\n", iter);
 
-    Frame X_Downsampled(X);
-    Frame Y;
+//     Frame X_Downsampled(X);
+//     Frame Y;
 
-    X_Downsampled.RandomDownsample(0.05);  // Randomly subsample 5% from X
-    Y.ReserveSize(X_Downsampled.GetSize());
+//     X_Downsampled.RandomDownsample(0.05);  // Randomly subsample 5% from X
+//     Y.ReserveSize(X_Downsampled.GetSize());
 
-    // std::printf("X_Downsampled size: %d\n", X_Downsampled.GetSize());
+//     // std::printf("X_Downsampled size: %d\n", X_Downsampled.GetSize());
 
-    std::vector<std::pair<int, double>> dist_vector;  // <index of X_Downsampled, distance>
-    dist_vector.reserve(X_Downsampled.GetSize());
+//     std::vector<std::pair<int, double>> dist_vector;  // <index of X_Downsampled, distance>
+//     dist_vector.reserve(X_Downsampled.GetSize());
 
-    unsigned int N_Downsampled = X_Downsampled.GetSize();
+//     unsigned int N_Downsampled = X_Downsampled.GetSize();
 
-    // Find the nearest neighbor for each point in X_Downsampled
-    for (int i = 0; i < N_Downsampled; i++) {
-      double min_dist = 1e10;
-      int min_idx = 0;
-      for (int j = 0; j < N_F1; j++) {
-        double dist = sqrt(pow(X_Downsampled.GetOnePoint(i)(0) - F1_.GetOnePoint(j)(0), 2) +
-                           pow(X_Downsampled.GetOnePoint(i)(1) - F1_.GetOnePoint(j)(1), 2));  // Euclidean distance
-        if (dist < min_dist) {
-          min_dist = dist;
-          min_idx = j;
-        }
-      }
-      dist_vector.emplace_back(i, min_dist);
-      Y.SetOnePoint(i, F1_.GetOnePoint(min_idx));
-    }
+//     // Find the nearest neighbor for each point in X_Downsampled
+//     for (int i = 0; i < N_Downsampled; i++) {
+//       double min_dist = 1e10;
+//       int min_idx = 0;
+//       for (int j = 0; j < N_F1; j++) {
+//         double dist = sqrt(pow(X_Downsampled.GetOnePoint(i)(0) - F1_.GetOnePoint(j)(0), 2) +
+//                            pow(X_Downsampled.GetOnePoint(i)(1) - F1_.GetOnePoint(j)(1), 2));  // Euclidean distance
+//         if (dist < min_dist) {
+//           min_dist = dist;
+//           min_idx = j;
+//         }
+//       }
+//       dist_vector.emplace_back(i, min_dist);
+//       Y.SetOnePoint(i, F1_.GetOnePoint(min_idx));
+//     }
 
-    // sort dist_vector by distance
-    std::sort(dist_vector.begin(), dist_vector.end(),
-              [](const std::pair<int, double>& a, const std::pair<int, double>& b) { return a.second > b.second; });
+//     // sort dist_vector by distance
+//     std::sort(dist_vector.begin(), dist_vector.end(),
+//               [](const std::pair<int, double>& a, const std::pair<int, double>& b) { return a.second > b.second; });
 
-    // Drop points with top 5% distance by making disabled_(i) = 1
-    for (int i = 0; i < N_Downsampled * 0.05; i++) {
-      X_Downsampled.SetOnePointDisabled(dist_vector[i].first, true);
-    }
+//     // Drop points with top 5% distance by making disabled_(i) = 1
+//     for (int i = 0; i < N_Downsampled * 0.05; i++) {
+//       X_Downsampled.SetOnePointDisabled(dist_vector[i].first, true);
+//     }
 
-    // VisualizeLineBetweenMatchingPoints(marker_pub_, X_Downsampled, Y);
-    // VisualizeFrame(marker_pub_, X, 2);
+//     // VisualizeLineBetweenMatchingPoints(marker_pub_, X_Downsampled, Y);
+//     // VisualizeFrame(marker_pub_, X, 2);
 
-    Eigen::Matrix3d result;
-    FindAlignment(X_Downsampled, Y, result);  // left top 2x2: R, right top 2x1: t, left bottom 1x1: err
-    Eigen::Matrix2d R_step = result.block<2, 2>(0, 0);
-    Eigen::Vector2d t_step = result.block<2, 1>(0, 2);
+//     Eigen::Matrix3d result;
+//     FindAlignment(X_Downsampled, Y, result);  // left top 2x2: R, right top 2x1: t, left bottom 1x1: err
+//     Eigen::Matrix2d R_step = result.block<2, 2>(0, 0);
+//     Eigen::Vector2d t_step = result.block<2, 1>(0, 2);
 
-    // Update R, t, err
-    R = R_step * R;
-    t = R_step * t + t_step;
-    err = result(2, 0);
+//     // Update R, t, err
+//     R = R_step * R;
+//     t = R_step * t + t_step;
+//     err = result(2, 0);
 
-    // Update X
-    X.SetPoints(R * F2_.GetPoints() + t * Eigen::MatrixXd::Ones(1, N_F2));
-    VisualizeFrame(marker_pub_, X, 2);
+//     // Update X
+//     X.SetPoints(R * F2_.GetPoints() + t * Eigen::MatrixXd::Ones(1, N_F2));
+//     VisualizeFrame(marker_pub_, X, 2);
 
-    // Print R, t, err
-    // std::cout << "R: " << std::endl << R << std::endl;
-    // std::cout << "t: " << std::endl << t << std::endl;
-    // std::cout << "err: " << err << std::endl;
+//     // Print R, t, err
+//     // std::cout << "R: " << std::endl << R << std::endl;
+//     // std::cout << "t: " << std::endl << t << std::endl;
+//     // std::cout << "err: " << err << std::endl;
 
-    // Check convergence
-    errors_.push_back(err);
-    if (errors_.size() > 10) {
-      errors_.erase(errors_.begin());
-    }
-    double error_mean = std::accumulate(errors_.begin(), errors_.end(), 0.0) / errors_.size();
-    double error_sq_sum = std::inner_product(errors_.begin(), errors_.end(), errors_.begin(), 0.0);
-    double error_stdev = std::sqrt(error_sq_sum / errors_.size() - error_mean * error_mean);
-    // std::printf("error_stdev: %f\n", error_stdev);
-    if (errors_.size() == 10 && error_stdev < error_stdev_threshold_) {
-      // std::printf("Converged!\n");
-      break;
-    }
-  }
+//     // Check convergence
+//     errors_.push_back(err);
+//     if (errors_.size() > 10) {
+//       errors_.erase(errors_.begin());
+//     }
+//     double error_mean = std::accumulate(errors_.begin(), errors_.end(), 0.0) / errors_.size();
+//     double error_sq_sum = std::inner_product(errors_.begin(), errors_.end(), errors_.begin(), 0.0);
+//     double error_stdev = std::sqrt(error_sq_sum / errors_.size() - error_mean * error_mean);
+//     // std::printf("error_stdev: %f\n", error_stdev);
+//     if (errors_.size() == 10 && error_stdev < error_stdev_threshold_) {
+//       // std::printf("Converged!\n");
+//       break;
+//     }
+//   }
 
-  t_end_ = std::chrono::system_clock::now();
-  std::chrono::duration<double> t_reg = t_end_ - t_start_;
-  std::cout << "Takes " << t_reg.count() << " sec..." << std::endl;
-}
+//   t_end_ = std::chrono::system_clock::now();
+//   std::chrono::duration<double> t_reg = t_end_ - t_start_;
+//   std::cout << "Takes " << t_reg.count() << " sec..." << std::endl;
+// }
 
 void ICP::FindAlignment(Frame& X_frame, Frame& Y_frame, Eigen::Matrix3d& result) {
   /// \brief Find the alignment between X and Y
@@ -298,17 +290,16 @@ double ICP::RunHeightICP() {
   Eigen::Matrix2d R = Eigen::Matrix2d::Identity();  // rotation
   Eigen::Vector2d t = Eigen::Vector2d::Zero();      // translation
   double err = 0;                                   // error
+  errors_.clear();
 
   int max_iter = 100;
   double thresh = 1e-5;
 
-  unsigned int N_F1 = F1_.GetSize();
-  unsigned int N_F2 = F2_.GetSize();
+  unsigned int N_Map = Map_.GetSize();
+  unsigned int N_Source = Source_.GetSize();
 
-  Frame X(F2_);
-  Frame X_copy(F2_);
-
-  errors_.clear();
+  // First, transform Source_ to the original frame
+  Source_.Transform(R_, t_);
 
   // Start ICP loop
   for (int iter = 0; iter < max_iter; iter++) {
@@ -318,37 +309,38 @@ double ICP::RunHeightICP() {
     }
 
     // std::printf("==========iter: %d==========\n", iter);
-    Frame X_Downsampled(X);
+    Frame Source_downsampled(Source_);
     Frame Y;
 
-    X_Downsampled.RandomDownsample(0.05);  // Randomly subsample 5% from X
-    Y.ReserveSize(X_Downsampled.GetSize());
+    Source_downsampled.RandomDownsample(0.05);  // Randomly subsample 5% from Source_
+    Y.ReserveSize(Source_downsampled.GetSize());
 
-    // std::printf("X_Downsampled size: %d\n", X_Downsampled.GetSize());
+    // std::printf("Source_downsampled size: %d\n", Source_downsampled.GetSize());
 
-    std::vector<std::pair<int, double>> dist_vector;  // <index of X_Downsampled, distance>
-    dist_vector.reserve(X_Downsampled.GetSize());
+    std::vector<std::pair<int, double>> dist_vector;  // <index of Source_downsampled, distance>
+    dist_vector.reserve(Source_downsampled.GetSize());
 
-    unsigned int N_Downsampled = X_Downsampled.GetSize();
+    unsigned int N_Downsampled = Source_downsampled.GetSize();
 
-    // Find the nearest neighbor for each point in X_Downsampled
+    // Find the nearest neighbor for each point in Source_downsampled
     for (int i = 0; i < N_Downsampled; i++) {
       double min_dist = 1e10;
       int min_idx = 0;
-      for (int j = 0; j < N_F1; j++) {
-        double dist = sqrt(pow(X_Downsampled.GetOnePoint(i)(0) - F1_.GetOnePoint(j)(0), 2) +
-                           pow(X_Downsampled.GetOnePoint(i)(1) - F1_.GetOnePoint(j)(1), 2));  // Euclidean distance
+      for (int j = 0; j < N_Map; j++) {
+        double dist =
+            sqrt(pow(Source_downsampled.GetOnePoint(i)(0) - Map_.GetOnePoint(j)(0), 2) +
+                 pow(Source_downsampled.GetOnePoint(i)(1) - Map_.GetOnePoint(j)(1), 2));  // Euclidean distance
         if (dist < min_dist) {
           // Update only when height is similar
-          // if (abs(X_Downsampled.GetOneHeight(i) - F1_.GetOneHeight(j)) < 1) {
+          // if (abs(Source_downsampled.GetOneHeight(i) - Map_.GetOneHeight(j)) < 1) {
           min_dist = dist;
           min_idx = j;
           // }
         }
       }
       dist_vector.emplace_back(i, min_dist);
-      Y.SetOnePoint(i, F1_.GetOnePoint(min_idx));
-      Y.SetOneHeight(i, F1_.GetOneHeight(min_idx));
+      Y.SetOnePoint(i, Map_.GetOnePoint(min_idx));
+      Y.SetOneHeight(i, Map_.GetOneHeight(min_idx));
     }
 
     // sort dist_vector by distance
@@ -357,14 +349,14 @@ double ICP::RunHeightICP() {
 
     // Drop points with top 5% distance by making disabled_(i) = 1
     for (int i = 0; i < N_Downsampled * 0.05; i++) {
-      X_Downsampled.SetOnePointDisabled(dist_vector[i].first, true);
+      Source_downsampled.SetOnePointDisabled(dist_vector[i].first, true);
     }
 
-    VisualizeLineBetweenMatchingPoints(marker_pub_, X_Downsampled, Y);
-    VisualizeFrame(marker_pub_, X, 2);
+    VisualizeLineBetweenMatchingPoints(marker_pub_, Source_downsampled, Y);
+    VisualizeFrame(marker_pub_, Source_, 2);
 
     Eigen::Matrix3d result;
-    FindHeightAlignment(X_Downsampled, Y, result);  // left top 2x2: R, right top 2x1: t, left bottom 1x1: err
+    FindHeightAlignment(Source_downsampled, Y, result);  // left top 2x2: R, right top 2x1: t, left bottom 1x1: err
     Eigen::Matrix2d R_step = result.block<2, 2>(0, 0);
     Eigen::Vector2d t_step = result.block<2, 1>(0, 2);
 
@@ -373,9 +365,9 @@ double ICP::RunHeightICP() {
     t = R_step * t + t_step;
     err = result(2, 0);
 
-    // Update X
-    X.SetPoints(R * F2_.GetPoints() + t * Eigen::MatrixXd::Ones(1, N_F2));
-    // VisualizeFrame(marker_pub_, X, 2);
+    // Update Source_
+    Source_.Transform(R_step, t_step);
+    // VisualizeFrame(marker_pub_, Source_, 2);
 
     // Print R, t, err
     // std::cout << "R: " << std::endl << R << std::endl;
@@ -395,16 +387,17 @@ double ICP::RunHeightICP() {
       // std::printf("Converged!\n");
       break;
     }
+
+    // Visualize pose for each iteration
+    VisualizePose(marker_pub_, R * R_, R * t_ + t, Source_.GetTimestamp());
   }
+  VisualizeArrow(marker_pub_, t_, R * t_ + t);
 
   // Accumulate R_ and t_
   R_ = R * R_;
   t_ = R * t_ + t;
 
-  // Transform X_copy to the original frame
-  X_copy.SetPoints(R_ * X_copy.GetPoints() + t_ * Eigen::MatrixXd::Ones(1, N_F2));
-
-  Map_.RegisterPointCloud(X_copy);
+  Map_.RegisterPointCloud(Source_);
   VisualizeFrame(marker_pub_, Map_, 3);
 
   // std::cout << "err: " << err << std::endl;

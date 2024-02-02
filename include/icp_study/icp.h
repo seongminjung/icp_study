@@ -17,8 +17,7 @@ class ICP {
   ros::NodeHandle nh_;
   ros::Publisher marker_pub_;
   ros::Subscriber point_cloud_sub_;
-  Frame F1_, F2_;
-  Frame Map_;
+  Frame Source_, Map_;
 
   // Accumulated transformation
   Eigen::Matrix2d R_;
