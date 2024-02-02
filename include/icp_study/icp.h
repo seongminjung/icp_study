@@ -20,6 +20,10 @@ class ICP {
   Frame F1_, F2_;
   Frame Map_;
 
+  // Accumulated transformation
+  Eigen::Matrix2d R_;
+  Eigen::Vector2d t_;
+
   // PCL ICP algorithm
   pcl::PointCloud<pcl::PointXYZ>::Ptr src;
   pcl::PointCloud<pcl::PointXYZ>::Ptr tgt;

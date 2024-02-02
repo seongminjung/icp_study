@@ -16,6 +16,9 @@
 ICP::ICP() {
   marker_pub_ = nh_.advertise<visualization_msgs::MarkerArray>("visualization_marker/frame", 1);
   point_cloud_sub_ = nh_.subscribe("/kitti/velo/pointcloud", 1, &ICP::PointCloudCallback, this);
+
+  R_ = Eigen::Matrix2d::Identity();
+  t_ = Eigen::Vector2d::Zero();
 }
 
 void ICP::PointCloudCallback(const sensor_msgs::PointCloud2::ConstPtr& point_cloud_msg) {
@@ -303,6 +306,7 @@ double ICP::RunHeightICP() {
   unsigned int N_F2 = F2_.GetSize();
 
   Frame X(F2_);
+  Frame X_copy(F2_);
 
   errors_.clear();
 
@@ -314,7 +318,6 @@ double ICP::RunHeightICP() {
     }
 
     // std::printf("==========iter: %d==========\n", iter);
-
     Frame X_Downsampled(X);
     Frame Y;
 
@@ -394,7 +397,14 @@ double ICP::RunHeightICP() {
     }
   }
 
-  Map_.RegisterPointCloud(X);
+  // Accumulate R_ and t_
+  R_ = R * R_;
+  t_ = R * t_ + t;
+
+  // Transform X_copy to the original frame
+  X_copy.SetPoints(R_ * X_copy.GetPoints() + t_ * Eigen::MatrixXd::Ones(1, N_F2));
+
+  Map_.RegisterPointCloud(X_copy);
   VisualizeFrame(marker_pub_, Map_, 3);
 
   // std::cout << "err: " << err << std::endl;
