@@ -228,9 +228,9 @@ void Frame::RegisterPointCloud(Frame& source_tf) {
   for (int i = 0; i < source_tf.GetSize(); i++) {
     bool duplicate = false;
     for (int j = 0; j < GetSize(); j++) {
-      // If there is a duplicate, break the loop. Duplicate means the x, y value is similar (half of resolution_)
-      if (fabs(GetOnePoint(j)(0) - source_tf.GetOnePoint(i)(0)) < resolution_ / 2 &&
-          fabs(GetOnePoint(j)(1) - source_tf.GetOnePoint(i)(1)) < resolution_ / 2) {
+      // If there is a duplicate, break the loop. Duplicate means the x, y value is similar (resolution_)
+      if (fabs(GetOnePoint(j)(0) - source_tf.GetOnePoint(i)(0)) < resolution_ &&
+          fabs(GetOnePoint(j)(1) - source_tf.GetOnePoint(i)(1)) < resolution_) {
         duplicate = true;
         duplicate_count++;
         break;

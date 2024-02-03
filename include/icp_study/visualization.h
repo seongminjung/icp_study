@@ -97,7 +97,7 @@ void VisualizeFrame(ros::Publisher marker_pub, Frame& frame, int color) {
     // Set the pose of the marker. This is a full 6DOF pose relative to the frame/time specified in the header
     marker.pose.position.x = x;
     marker.pose.position.y = y;
-    marker.pose.position.z = 0;
+    marker.pose.position.z = frame.GetOneHeight(i) / 2;
     marker.pose.orientation.x = 0.0;
     marker.pose.orientation.y = 0.0;
     marker.pose.orientation.z = 0.0;
@@ -106,7 +106,7 @@ void VisualizeFrame(ros::Publisher marker_pub, Frame& frame, int color) {
     // Set the scale of the marker -- 1x1x1 here means 1m on a side
     marker.scale.x = frame.GetResolution();
     marker.scale.y = frame.GetResolution();
-    marker.scale.z = 0.001;
+    marker.scale.z = frame.GetOneHeight(i);
 
     if (color == 0) {
       marker.color.r = 1;
@@ -310,13 +310,13 @@ void VisualizePose(ros::Publisher marker_pub, Eigen::Matrix2d R, Eigen::Vector2d
   marker.pose.orientation.w = q.w();
 
   // Set the scale of the marker -- 1x1x1 here means 1m on a side
-  marker.scale.x = 1;
-  marker.scale.y = 0.5;
-  marker.scale.z = 0.5;
+  marker.scale.x = 3;
+  marker.scale.y = 1.5;
+  marker.scale.z = 1.5;
 
-  marker.color.r = 1;
+  marker.color.r = 0;
   marker.color.g = 0;
-  marker.color.b = 0;
+  marker.color.b = 1;
 
   marker.color.a = 0.5;
 
