@@ -283,19 +283,6 @@ void ICP::FindAlignment(Frame& X_frame, Frame& Y_frame, Eigen::Matrix3d& result)
   // VisualizeCentroid(marker_pub_, X_centroid_tf, X_frame.GetTimestamp(), 2);
 }
 
-void ICP::TestGettingCorrespondence() {
-  Eigen::MatrixXd Source_points = Source_.GetPoints();
-  Eigen::MatrixXd Map_points = Map_.GetPoints();
-
-  Eigen::VectorXi correspondences(Source_points.cols());
-  Eigen::VectorXi::Index min_index;
-  for (int i = 0; i < Source_points.cols(); i++) {
-    Eigen::VectorXd dists_sq = (Map_points.colwise() - Source_points.col(i)).colwise().squaredNorm();
-    dists_sq.minCoeff(&min_index);
-    correspondences(i) = min_index;
-  }
-}
-
 double ICP::RunHeightICP() {
   /// \brief 2D HeightGrid ICP algorithm. F2 is transformed to F1.
 
@@ -335,11 +322,6 @@ double ICP::RunHeightICP() {
 
     unsigned int N_Downsampled = Source_downsampled.GetSize();
 
-    //////////// Method 1 Start ////////////
-
-    std::chrono::system_clock::time_point t_start, t_end;
-    t_start = std::chrono::system_clock::now();
-
     // Find the nearest neighbor for each point in Source_downsampled
     for (int i = 0; i < N_Downsampled; i++) {
       double min_dist = 1e10;
@@ -360,33 +342,6 @@ double ICP::RunHeightICP() {
       Y.SetOnePoint(i, Map_.GetOnePoint(min_idx));
       Y.SetOneHeight(i, Map_.GetOneHeight(min_idx));
     }
-
-    t_end = std::chrono::system_clock::now();
-    std::chrono::duration<double> t_reg = t_end - t_start;
-
-    std::cout << "Method 1 Takes " << t_reg.count() << " sec..." << std::endl;
-
-    //////////// Method 2 Start ////////////
-
-    Eigen::MatrixXd Source_points = Source_.GetPoints();
-    Eigen::MatrixXd Map_points = Map_.GetPoints();
-
-    std::chrono::system_clock::time_point t_start2, t_end2;
-
-    t_start2 = std::chrono::system_clock::now();
-
-    Eigen::VectorXi correspondences(Source_points.cols());
-    Eigen::VectorXi::Index min_index;
-    for (int i = 0; i < Source_points.cols(); i++) {
-      Eigen::VectorXd dists_sq = (Map_points.colwise() - Source_points.col(i)).colwise().squaredNorm();
-      dists_sq.minCoeff(&min_index);
-      correspondences(i) = min_index;
-    }
-
-    t_end2 = std::chrono::system_clock::now();
-    std::chrono::duration<double> t_reg2 = t_end2 - t_start2;
-
-    std::cout << "Method 2 Takes " << t_reg2.count() << " sec..." << std::endl;
 
     // sort dist_vector by distance
     std::sort(dist_vector.begin(), dist_vector.end(),
