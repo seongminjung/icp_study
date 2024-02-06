@@ -51,6 +51,8 @@ class ICP {
   double RunHeightICP();
   void FindHeightAlignment(Frame& X, Frame& Y, Eigen::Matrix3d& Result);
 
+  void TestGettingCorrespondence();
+
   // PCL ICP algorithm
   void RunICPPCL();
 
