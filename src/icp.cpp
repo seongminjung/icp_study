@@ -327,13 +327,12 @@ double ICP::RunHeightICP() {
       double min_dist = 1e10;
       int min_idx = 0;
       for (int j = 0; j < N_Map; j++) {
-        double dist =
-            sqrt(pow(Source_downsampled.GetOnePoint(i)(0) - Map_.GetOnePoint(j)(0), 2) +
-                 pow(Source_downsampled.GetOnePoint(i)(1) - Map_.GetOnePoint(j)(1), 2));  // Euclidean distance
-        if (dist < min_dist) {
+        double dist_sq = pow(Source_downsampled.GetOnePoint(i)(0) - Map_.GetOnePoint(j)(0), 2) +
+                         pow(Source_downsampled.GetOnePoint(i)(1) - Map_.GetOnePoint(j)(1), 2);
+        if (dist_sq < min_dist) {
           // Update only when height is similar
           // if (abs(Source_downsampled.GetOneHeight(i) - Map_.GetOneHeight(j)) < 1) {
-          min_dist = dist;
+          min_dist = dist_sq;
           min_idx = j;
           // }
         }
