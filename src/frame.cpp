@@ -122,6 +122,7 @@ void Frame::Voxelize(pcl::PointCloud<pcl::PointXYZ>& input, pcl::PointCloud<pcl:
   std::vector<int> first_indices_vector;
   v_index_vector.clear();
   v_index_vector.reserve(output.points.size());
+  first_indices_vector.reserve(output.points.size());
   while (index < index_vector.size()) {
     unsigned int i = index + 1;
     while (i < index_vector.size() && index_vector[i].idx == index_vector[index].idx) ++i;
@@ -133,6 +134,45 @@ void Frame::Voxelize(pcl::PointCloud<pcl::PointXYZ>& input, pcl::PointCloud<pcl:
     }
     index = i;
   }
+
+  // print size of v_index_vector
+  std::cout << "v_index_vector size: " << v_index_vector.size() << std::endl;
+
+  // Between third pass and fourth pass - We remove x-direction lines here, since a car can only move forward and
+  // backward (along x-axis)
+  // Remove the lines with more than 5 points. There's no need to sort
+  // it again, since it's already sorted.
+
+  unsigned int i_start = 0;  // Acts exactly the same as index right above; which is a starting index of a line
+  while (i_start < v_index_vector.size()) {
+    unsigned int i_end = i_start + 1;  // The next index of the last point of a line
+    while (i_end < v_index_vector.size() &&
+           HashToY(v_index_vector[i_end].idx) == HashToY(v_index_vector[i_start].idx) &&
+           HashToX(v_index_vector[i_end].idx) - HashToX(v_index_vector[i_start].idx) == i_end - i_start)
+      ++i_end;
+    // std::cout << "i: " << i_end << " i_start: " << i_start << std::endl;
+    if (i_end - i_start >= 5) {
+      // print i_end and i_start
+      std::cout << "i_end: " << i_end << " i_start: " << i_start << std::endl;
+      // If the line has more than 5 points, remove the line
+      v_index_vector.erase(v_index_vector.begin() + i_start, v_index_vector.begin() + i_end);
+      // we don't do i_end + 1 above, since i_end is already incremented in the while loop
+      i_end = i_start + 1;  // since we removed the line, we need to reset i_end to the next element
+    }
+    i_start = i_end;
+  }
+
+  // Print first 10 coordinates of v_index_vector
+  std::cout << "middle 10 coordinates of v_index_vector: " << std::endl;
+  for (int i = v_index_vector.size() / 2; i < v_index_vector.size() / 2 + 10; i++) {
+    int x = (int((v_index_vector[i].idx & 0x3FF00000) >> 20) - (512 - 1)) * voxel_size;
+    int y = (int((v_index_vector[i].idx & 0x000FFC00) >> 10) - (512 - 1)) * voxel_size;
+    int z = (int(v_index_vector[i].idx & 0x000003FF) - (512 - 1)) * voxel_size;
+    std::cout << "x: " << x << " y: " << y << " z: " << z << std::endl;
+  }
+
+  // print size of v_index_vector after removing x-direction lines
+  std::cout << "v_index_vector size after removing x-direction lines: " << v_index_vector.size() << std::endl;
 
   // Fourth pass: insert voxels into the output
   output.points.reserve(total);
