@@ -20,25 +20,11 @@ Frame::Frame(const sensor_msgs::PointCloud2::ConstPtr& point_cloud_msg) {
 
   // voxelization
   pcl::PointCloud<pcl::PointXYZ>::Ptr ptr_voxelized(new pcl::PointCloud<pcl::PointXYZ>);
-  SetIndexVector(*ptr_cloud, resolution_);
+  SetHashVector(*ptr_cloud, resolution_);
   Voxelize(*ptr_cloud, *ptr_voxelized, resolution_, min_points_per_voxel_);
 
   // line extraction
-  std::vector<std::pair<pcl::PointXYZ, pcl::PointXYZ>> lines;
-  ExtractLine(*ptr_voxelized, lines);
-
-  // set points
-  points_.resize(2, lines.size());
-  heights_.resize(lines.size());
-  for (int i = 0; i < lines.size(); i++) {
-    // We are sure there are no 2 points with the same x, y value, since we have avoided it in ExtractLine().
-    points_(0, i) = lines[i].first.x;
-    points_(1, i) = lines[i].first.y;
-    heights_(i) = lines[i].second.z - lines[i].first.z;
-  }
-
-  // set disabled_
-  disabled_ = Eigen::VectorXi::Zero(points_.cols());
+  ExtractLine();
 }
 
 Frame::Frame(const Frame& other) {
@@ -87,101 +73,42 @@ void Frame::ReserveSize(unsigned int size) {
 
 ////////////////////////////////
 // Converters
-void Frame::SetIndexVector(pcl::PointCloud<pcl::PointXYZ>& input, double voxel_size) {
-  index_vector.clear();
-  index_vector.reserve(input.points.size());
+void Frame::SetHashVector(pcl::PointCloud<pcl::PointXYZ>& input, double voxel_size) {
+  point_hash_.clear();
+  point_hash_.reserve(input.points.size());
 
-  // First pass: go over all points and insert them into the index_vector vector
-  // with calculated idx. Points with the same idx value will contribute to the
-  // same point of resulting CloudPoint
+  // First pass: go over all points and insert them into the point_hash_ vector with calculated hash. Points with the
+  // same hash value will contribute to the same point of resulting CloudPoint
   for (int i = 0; i < input.points.size(); i++) {
-    unsigned int x = round(input.points[i].x / voxel_size) + 512 - 1;  // offset 512 - 1
-    unsigned int y = round(input.points[i].y / voxel_size) + 512 - 1;
-    unsigned int z = round(input.points[i].z / voxel_size) + 512 - 1;
-
-    // hashing
-    unsigned int rx = (x << 20) & 0x3FF00000;
-    unsigned int ry = (y << 10) & 0x000FFC00;
-    unsigned int rz = z & 0x000003FF;
-    unsigned int hash = rx + ry + rz;
-
-    index_vector.emplace_back(hash, i);
+    point_hash_.emplace_back(CoordToHash(input.points[i].x, input.points[i].y, input.points[i].z));
   }
 
-  // Second pass: sort the index_vector vector using value representing target cell as index
-  // in effect all points belonging to the same output cell will be next to each other
-  std::sort(index_vector.begin(), index_vector.end(), std::less<cloud_point_index_idx>());
+  // Second pass: sort the point_hash_ vector so all points belonging to the same output cell will be next to each other
+  std::sort(point_hash_.begin(), point_hash_.end());
 }
 
 void Frame::Voxelize(pcl::PointCloud<pcl::PointXYZ>& input, pcl::PointCloud<pcl::PointXYZ>& output, double voxel_size,
                      unsigned int min_points_per_voxel) {
   // Third pass: count output cells
   // we need to skip all the same, adjacent idx values
-  unsigned int total = 0;
   unsigned int index = 0;
-  std::vector<int> first_indices_vector;
-  v_index_vector.clear();
-  v_index_vector.reserve(output.points.size());
-  first_indices_vector.reserve(output.points.size());
-  while (index < index_vector.size()) {
+  voxel_hash_.clear();
+  voxel_hash_.reserve(output.points.size());
+  while (index < point_hash_.size()) {
     unsigned int i = index + 1;
-    while (i < index_vector.size() && index_vector[i].idx == index_vector[index].idx) ++i;
+    while (i < point_hash_.size() && point_hash_[i] == point_hash_[index]) ++i;
     if (i - index >= min_points_per_voxel) {
-      ++total;
-      first_indices_vector.emplace_back(index);
-      // <hash, index of voxel vector>
-      v_index_vector.emplace_back(index_vector[index].idx, first_indices_vector.size() - 1);
+      voxel_hash_.emplace_back(point_hash_[index]);
     }
     index = i;
   }
 
-  // print size of v_index_vector
-  std::cout << "v_index_vector size: " << v_index_vector.size() << std::endl;
-
-  // Between third pass and fourth pass - We remove x-direction lines here, since a car can only move forward and
-  // backward (along x-axis)
-  // Remove the lines with more than 5 points. There's no need to sort
-  // it again, since it's already sorted.
-
-  unsigned int i_start = 0;  // Acts exactly the same as index right above; which is a starting index of a line
-  while (i_start < v_index_vector.size()) {
-    unsigned int i_end = i_start + 1;  // The next index of the last point of a line
-    while (i_end < v_index_vector.size() &&
-           HashToY(v_index_vector[i_end].idx) == HashToY(v_index_vector[i_start].idx) &&
-           HashToX(v_index_vector[i_end].idx) - HashToX(v_index_vector[i_start].idx) == i_end - i_start)
-      ++i_end;
-    // std::cout << "i: " << i_end << " i_start: " << i_start << std::endl;
-    if (i_end - i_start >= 5) {
-      // print i_end and i_start
-      std::cout << "i_end: " << i_end << " i_start: " << i_start << std::endl;
-      // If the line has more than 5 points, remove the line
-      v_index_vector.erase(v_index_vector.begin() + i_start, v_index_vector.begin() + i_end);
-      // we don't do i_end + 1 above, since i_end is already incremented in the while loop
-      i_end = i_start + 1;  // since we removed the line, we need to reset i_end to the next element
-    }
-    i_start = i_end;
-  }
-
-  // Print first 10 coordinates of v_index_vector
-  std::cout << "middle 10 coordinates of v_index_vector: " << std::endl;
-  for (int i = v_index_vector.size() / 2; i < v_index_vector.size() / 2 + 10; i++) {
-    int x = (int((v_index_vector[i].idx & 0x3FF00000) >> 20) - (512 - 1)) * voxel_size;
-    int y = (int((v_index_vector[i].idx & 0x000FFC00) >> 10) - (512 - 1)) * voxel_size;
-    int z = (int(v_index_vector[i].idx & 0x000003FF) - (512 - 1)) * voxel_size;
-    std::cout << "x: " << x << " y: " << y << " z: " << z << std::endl;
-  }
-
-  // print size of v_index_vector after removing x-direction lines
-  std::cout << "v_index_vector size after removing x-direction lines: " << v_index_vector.size() << std::endl;
-
   // Fourth pass: insert voxels into the output
-  output.points.reserve(total);
-  for (int first_idx : first_indices_vector) {
+  output.points.reserve(voxel_hash_.size());
+  for (unsigned int hash : voxel_hash_) {
     // unhashing
-    double x = (int((index_vector[first_idx].idx & 0x3FF00000) >> 20) - (512 - 1)) * voxel_size;
-    double y = (int((index_vector[first_idx].idx & 0x000FFC00) >> 10) - (512 - 1)) * voxel_size;
-    double z = (int(index_vector[first_idx].idx & 0x000003FF) - (512 - 1)) * voxel_size;
-
+    double x, y, z;
+    HashToCoord(hash, x, y, z);
     output.points.emplace_back(x, y, z);
   }
   output.width = static_cast<std::uint32_t>(output.points.size());
@@ -189,32 +116,86 @@ void Frame::Voxelize(pcl::PointCloud<pcl::PointXYZ>& input, pcl::PointCloud<pcl:
   output.is_dense = true;  // we filter out invalid points
 }
 
-void Frame::ExtractLine(pcl::PointCloud<pcl::PointXYZ>& v_input,
-                        std::vector<std::pair<pcl::PointXYZ, pcl::PointXYZ>>& output) {
+void Frame::ExtractLine() {
+  int n_voxel = voxel_hash_.size();
+  int n_lines = 0;
+
+  points_.resize(2, n_voxel);
+  heights_.resize(n_voxel);
+
   int idx1 = 0, idx2 = 1;
-  while (idx2 < v_index_vector.size()) {
-    if (v_index_vector[idx2].idx - v_index_vector[idx1].idx == idx2 - idx1) {
+  while (idx2 < n_voxel) {
+    if (voxel_hash_[idx2] - voxel_hash_[idx1] == idx2 - idx1) {
       idx2++;
     } else {
       if (idx2 - idx1 > 2) {
-        pcl::PointXYZ p1, p2;
-        p1.x = v_input.points[v_index_vector[idx1].voxel_index].x;
-        p1.y = v_input.points[v_index_vector[idx1].voxel_index].y;
-        p1.z = v_input.points[v_index_vector[idx1].voxel_index].z;
-        p2.x = v_input.points[v_index_vector[idx2 - 1].voxel_index].x;
-        p2.y = v_input.points[v_index_vector[idx2 - 1].voxel_index].y;
-        p2.z = v_input.points[v_index_vector[idx2 - 1].voxel_index].z;
-        // emplace back to output only when p1.x and p2.x is not the same as the last entry's. This is for avoiding
+        double x1, y1, z1, x2, y2, z2;
+        HashToCoord(voxel_hash_[idx1], x1, y1, z1);
+        HashToCoord(voxel_hash_[idx2 - 1], x2, y2, z2);
+        // Add points_ and heights_ only when x1 and y1 is not the same as the last entry's. This is for avoiding
         // creating duplicate points.
-        if (output.size() == 0 ||
-            (output.size() > 0 && p1.x != output.back().first.x || p1.y != output.back().first.y)) {
-          output.emplace_back(p1, p2);
+        if (n_lines == 0 || (n_lines > 0 && x1 != points_(0, n_lines - 1) || y1 != points_(1, n_lines - 1))) {
+          points_.col(n_lines) << x1, y1;
+          heights_(n_lines) = z2 - z1;
+          ++n_lines;
         }
       }
       idx1 = idx2;
       idx2++;
     }
   }
+
+  // Resize points_ and heights_ to n_lines to avoid trash values
+  points_.conservativeResize(2, n_lines);
+  heights_.conservativeResize(n_lines);
+  disabled_ = Eigen::VectorXi::Zero(points_.cols());
+}
+
+// // We remove x-direction lines here, since a car can only move forward and
+// // backward (along x-axis)
+// // Remove the lines with more than 5 points. There's no need to sort it again, since it's already sorted above.
+// std::vector<unsigned int> voxel_hash_lines;
+
+// unsigned int i_start = 0;  // Acts exactly the same as index right above; which is a starting index of a line
+// while (i_start < voxel_hash_.size()) {
+//   unsigned int i_end = i_start + 1;  // The next index of the last point of a line
+//   while (i_end < voxel_hash_.size() && HashToY(voxel_hash_[i_end]) == HashToY(voxel_hash_[i_start]) &&
+//          HashToX(voxel_hash_[i_end]) - HashToX(voxel_hash_[i_start]) == i_end - i_start)
+//     ++i_end;
+//   // std::cout << "i: " << i_end << " i_start: " << i_start << std::endl;
+//   if (i_end - i_start >= 5) {
+//     // print i_end and i_start
+//     std::cout << "i_end: " << i_end << " i_start: " << i_start << std::endl;
+//     // If the line has more than 5 points, remove the line
+//     voxel_hash_.erase(voxel_hash_.begin() + i_start, voxel_hash_.begin() + i_end);
+//     for (int i = i_start; i < i_end; i++) {
+//       voxel_hash_lines.emplace_back(voxel_hash_[i]);
+//     }
+//     // we don't do i_end + 1 above, since i_end is already incremented in the while loop
+//     i_end = i_start + 1;  // since we removed the line, we need to reset i_end to the next element
+//   }
+//   i_start = i_end;
+// }
+
+unsigned int Frame::CoordToHash(double x, double y, double z) {
+  unsigned int rounded_x = round(x / resolution_) + 512;  // offset 512
+  unsigned int rounded_y = round(y / resolution_) + 512;
+  unsigned int rounded_z = round(z / resolution_) + 512;
+
+  // hashing
+  unsigned int hashed_x = (rounded_x << 20) & 0x3FF00000;
+  unsigned int hashed_y = (rounded_y << 10) & 0x000FFC00;
+  unsigned int hashed_z = rounded_z & 0x000003FF;
+  unsigned int hash = hashed_x + hashed_y + hashed_z;
+
+  return hash;
+}
+
+void Frame::HashToCoord(unsigned int hash, double& x, double& y, double& z) {
+  // unhashing
+  x = (int((hash & 0x3FF00000) >> 20) - 512) * resolution_;
+  y = (int((hash & 0x000FFC00) >> 10) - 512) * resolution_;
+  z = (int(hash & 0x000003FF) - 512) * resolution_;
 }
 
 ////////////////////////////////

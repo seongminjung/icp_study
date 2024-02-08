@@ -7,22 +7,6 @@
 
 #include <Eigen/Core>
 
-struct cloud_point_index_idx {
-  unsigned int idx;
-  unsigned int cloud_point_index;
-
-  cloud_point_index_idx(int idx_, unsigned int cloud_point_index_) : idx(idx_), cloud_point_index(cloud_point_index_) {}
-  bool operator<(const cloud_point_index_idx& p) const { return (idx < p.idx); }
-};
-
-struct voxel_index_idx {
-  unsigned int idx;
-  unsigned int voxel_index;
-
-  voxel_index_idx(int idx_, unsigned int voxel_index_) : idx(idx_), voxel_index(voxel_index_) {}
-  bool operator<(const voxel_index_idx& p) const { return (idx < p.idx); }
-};
-
 class Frame {
  private:
   time_t timestamp_;
@@ -35,9 +19,9 @@ class Frame {
   Eigen::VectorXd heights_;   // 1 x N
   Eigen::VectorXi disabled_;  // 1 x N
 
-  // Converters
-  std::vector<cloud_point_index_idx> index_vector;  // Storage for mapping leaf and pointcloud indexes
-  std::vector<voxel_index_idx> v_index_vector;      // Storage for mapping leaf and pointcloud indexes
+  // Hash vectors
+  std::vector<unsigned int> point_hash_;  // i-th element is the hash key of the i-th point
+  std::vector<unsigned int> voxel_hash_;  // i-th element is the hash key of the i-th voxel
 
  public:
   Frame();
@@ -70,11 +54,12 @@ class Frame {
   void ReserveSize(unsigned int size);
 
   // Converters
-  void SetIndexVector(pcl::PointCloud<pcl::PointXYZ>& input, double voxel_size);
+  void SetHashVector(pcl::PointCloud<pcl::PointXYZ>& input, double voxel_size);
   void Voxelize(pcl::PointCloud<pcl::PointXYZ>& input, pcl::PointCloud<pcl::PointXYZ>& output, double voxel_size,
                 unsigned int min_points_per_voxel);
-  void ExtractLine(pcl::PointCloud<pcl::PointXYZ>& v_input,
-                   std::vector<std::pair<pcl::PointXYZ, pcl::PointXYZ>>& output);
+  void ExtractLine();
+  unsigned int CoordToHash(double x, double y, double z);
+  void HashToCoord(unsigned int hash, double& x, double& y, double& z);
 
   // Downsampling
   void RandomDownsample(double ratio);
