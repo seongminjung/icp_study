@@ -4,7 +4,7 @@
 
 Frame::Frame() {}
 
-Frame::Frame(const sensor_msgs::PointCloud2::ConstPtr& point_cloud_msg) {
+Frame::Frame(const sensor_msgs::PointCloud2::ConstPtr& point_cloud_msg, int mode) {
   pcl::PointCloud<pcl::PointXYZ>::Ptr ptr_cloud(new pcl::PointCloud<pcl::PointXYZ>);
   pcl::fromROSMsg(*point_cloud_msg, *ptr_cloud);
 
@@ -22,7 +22,7 @@ Frame::Frame(const sensor_msgs::PointCloud2::ConstPtr& point_cloud_msg) {
   Voxelize(*ptr_cloud);
 
   // line extraction
-  ExtractLine();
+  ExtractLine(mode);
 }
 
 Frame::Frame(const Frame& other) {
@@ -99,7 +99,7 @@ void Frame::Voxelize(pcl::PointCloud<pcl::PointXYZ>& input) {
   }
 }
 
-void Frame::ExtractLine() {
+void Frame::ExtractLine(int mode) {
   int n_voxel = voxel_hash_.size();
   int n_lines = 0;
 
@@ -134,6 +134,13 @@ void Frame::ExtractLine() {
   points_tmp.conservativeResize(2, n_lines);
   heights_tmp.conservativeResize(n_lines);
 
+  if (mode == 0) {
+    points_ = points_tmp;
+    heights_ = heights_tmp;
+    disabled_ = Eigen::VectorXi::Zero(n_lines);
+    return;
+  }
+
   // Extract x-directional lines
   idx1 = 0;
   idx2 = 1;
@@ -144,7 +151,7 @@ void Frame::ExtractLine() {
         int((points_tmp(0, idx2) - points_tmp(0, idx1)) / resolution_) == idx2 - idx1) {
       idx2++;
     } else {
-      if (idx2 - idx1 > 3) {
+      if (idx2 - idx1 >= 5) {
         // Remove idx1-th to idx2-1-th elements of points_tmp and heights_tmp.
         // Here, we will use disabled_ vector to indicate which points are disabled.
         disabled_.segment(idx1, idx2 - idx1).setOnes();  // segment(start, length) is the syntax for Eigen::VectorXi
@@ -184,9 +191,10 @@ unsigned int Frame::CoordToHash(double x, double y, double z) {
 
 void Frame::HashToCoord(unsigned int hash, double& x, double& y, double& z) {
   // unhashing
-  x = (int((hash & 0x000FFC00) >> 10) - 512) * resolution_;
-  y = (int((hash & 0x3FF00000) >> 20) - 512) * resolution_;
-  z = (int(hash & 0x000003FF) - 512) * resolution_;
+  // type casting to double is imperative here to avoid unexpected line extraction fault
+  x = (double((hash & 0x000FFC00) >> 10) - 512) * resolution_;
+  y = (double((hash & 0x3FF00000) >> 20) - 512) * resolution_;
+  z = (double(hash & 0x000003FF) - 512) * resolution_;
 }
 
 ////////////////////////////////

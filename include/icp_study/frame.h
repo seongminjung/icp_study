@@ -19,13 +19,13 @@ class Frame {
   Eigen::VectorXd heights_;   // 1 x N
   Eigen::VectorXi disabled_;  // 1 x N
 
-  // Hash vectors
+  // Hash vectors. Hash must be unsigned int (to use right shift operator)
   std::vector<unsigned int> point_hash_;  // i-th element is the hash key of the i-th point
   std::vector<unsigned int> voxel_hash_;  // i-th element is the hash key of the i-th voxel
 
  public:
   Frame();
-  Frame(const sensor_msgs::PointCloud2::ConstPtr& point_cloud_msg);
+  Frame(const sensor_msgs::PointCloud2::ConstPtr& point_cloud_msg, int mode);
   Frame(const Frame& other);  // copy constructor
 
   // Getters
@@ -55,7 +55,7 @@ class Frame {
 
   // Converters
   void Voxelize(pcl::PointCloud<pcl::PointXYZ>& input);
-  void ExtractLine();
+  void ExtractLine(int mode);
   unsigned int CoordToHash(double x, double y, double z);
   void HashToCoord(unsigned int hash, double& x, double& y, double& z);
 
