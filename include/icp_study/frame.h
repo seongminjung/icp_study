@@ -20,8 +20,10 @@ class Frame {
   Eigen::VectorXi disabled_;  // 1 x N
 
   // Hash vectors. Hash must be unsigned int (to use right shift operator)
-  std::vector<unsigned int> point_hash_;  // i-th element is the hash key of the i-th point
-  std::vector<unsigned int> voxel_hash_;  // i-th element is the hash key of the i-th voxel
+  std::vector<unsigned int> point_hash_;                          // i-th element is the hash key of the i-th point
+  std::vector<unsigned int> voxel_hash_;                          // i-th element is the hash key of the i-th voxel
+  std::vector<unsigned int> cell_hash_;                           // i-th element is the hash key of the i-th cell
+  std::vector<std::pair<unsigned int, unsigned int>> line_hash_;  // Start and end hash of x-directional lines.
 
  public:
   Frame();

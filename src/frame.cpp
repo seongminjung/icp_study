@@ -101,29 +101,30 @@ void Frame::Voxelize(pcl::PointCloud<pcl::PointXYZ>& input) {
 
 void Frame::ExtractLine(int mode) {
   int n_voxel = voxel_hash_.size();
-  int n_lines = 0;
 
   Eigen::MatrixXd points_tmp;   // 2 x N  // These are temporary variables, acts the same as points_ and heights_
   Eigen::VectorXd heights_tmp;  // 1 x N  // These are the output of the z-directional line extraction
-  points_tmp.resize(2, n_voxel);
-  heights_tmp.resize(n_voxel);
+  line_hash_.reserve(n_voxel);
+  points_tmp.resize(2, n_voxel);  // temporary
+  heights_tmp.resize(n_voxel);    // not temporary
 
   // Extract z-directional lines
   int idx1 = 0, idx2 = 1;
+  int n_cells = 0;
   while (idx2 < n_voxel) {
     if (voxel_hash_[idx2] - voxel_hash_[idx1] == idx2 - idx1) {
-      idx2++;
+      ++idx2;
     } else {
       if (idx2 - idx1 > 2) {
-        double x1, y1, z1, x2, y2, z2;
-        HashToCoord(voxel_hash_[idx1], x1, y1, z1);
-        HashToCoord(voxel_hash_[idx2 - 1], x2, y2, z2);
-        // Add points_tmp and heights_tmp only when x1 and y1 is not the same as the last entry's. This is for avoiding
-        // creating duplicate points.
-        if (n_lines == 0 || (n_lines > 0 && x1 != points_tmp(0, n_lines - 1) || y1 != points_tmp(1, n_lines - 1))) {
-          points_tmp.col(n_lines) << x1, y1;
-          heights_tmp(n_lines) = z2 - z1;
-          ++n_lines;
+        // Add point only when x1 or y1 is not the same as the last entry's. This is for avoiding creating duplicate
+        // points.
+        if (n_cells == 0 || (n_cells > 0 && (voxel_hash_[idx1] >> 10) != (cell_hash_[n_cells - 1] >> 10))) {
+          double x, y, z;                           // temporary
+          HashToCoord(voxel_hash_[idx1], x, y, z);  // temporary
+          points_tmp.col(n_cells) << x, y;          // temporary
+          cell_hash_.emplace_back(voxel_hash_[idx1]);
+          heights_tmp(n_cells) = double((voxel_hash_[idx2 - 1] - voxel_hash_[idx1]) & 0x000003FF) * resolution_;
+          ++n_cells;
         }
       }
       idx1 = idx2;
@@ -131,48 +132,51 @@ void Frame::ExtractLine(int mode) {
     }
   }
 
-  points_tmp.conservativeResize(2, n_lines);
-  heights_tmp.conservativeResize(n_lines);
+  points_tmp.conservativeResize(2, n_cells);  // temporary
+  heights_tmp.conservativeResize(n_cells);
 
   if (mode == 0) {
     points_ = points_tmp;
     heights_ = heights_tmp;
-    disabled_ = Eigen::VectorXi::Zero(n_lines);
+    disabled_ = Eigen::VectorXi::Zero(n_cells);
     return;
   }
 
   // Extract x-directional lines
   idx1 = 0;
   idx2 = 1;
-  disabled_.setZero(n_lines);
+  disabled_ = Eigen::VectorXi::Zero(n_cells);
 
-  while (idx2 < n_lines) {
+  while (idx2 < n_cells) {
     if (points_tmp(1, idx2) == points_tmp(1, idx1) &&
         int((points_tmp(0, idx2) - points_tmp(0, idx1)) / resolution_) == idx2 - idx1) {
       idx2++;
     } else {
       if (idx2 - idx1 >= 5) {
-        // Remove idx1-th to idx2-1-th elements of points_tmp and heights_tmp.
-        // Here, we will use disabled_ vector to indicate which points are disabled.
+        // Store start and (end + 1) points of lines
         disabled_.segment(idx1, idx2 - idx1).setOnes();  // segment(start, length) is the syntax for Eigen::VectorXi
+        line_hash_.emplace_back(voxel_hash_[idx1], voxel_hash_[idx2]);
       }
       idx1 = idx2;
       idx2++;
     }
   }
 
-  points_.resize(2, n_lines - disabled_.sum());
-  heights_.resize(n_lines - disabled_.sum());
+  int n_cells_not_in_line = n_cells - disabled_.sum();
+  points_.resize(2, n_cells_not_in_line);
+  heights_.resize(n_cells_not_in_line);
 
   int new_idx = 0;
-  for (int i = 0; i < n_lines; i++) {
+  for (int i = 0; i < n_cells; i++) {
     if (!disabled_(i)) {
-      points_.col(new_idx) = points_tmp.col(i);
+      double x, y, z;
+      HashToCoord(cell_hash_[i], x, y, z);
+      points_.col(new_idx) << x, y;
       heights_(new_idx) = heights_tmp(i);
       new_idx++;
     }
   }
-  disabled_.setZero(n_lines - disabled_.sum());
+  disabled_.setZero(n_cells_not_in_line);
 }
 
 unsigned int Frame::CoordToHash(double x, double y, double z) {
