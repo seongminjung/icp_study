@@ -54,10 +54,9 @@ class Frame {
   void ReserveSize(unsigned int size);
 
   // Converters
-  void SetHashVector(pcl::PointCloud<pcl::PointXYZ>& input, double voxel_size);
-  void Voxelize(pcl::PointCloud<pcl::PointXYZ>& input, pcl::PointCloud<pcl::PointXYZ>& output, double voxel_size,
-                unsigned int min_points_per_voxel);
-  void ExtractLine();
+  void Voxelize(pcl::PointCloud<pcl::PointXYZ>& input);
+  void ExtractZLine();
+  void ExtractXLine();
   unsigned int CoordToHash(double x, double y, double z);
   void HashToCoord(unsigned int hash, double& x, double& y, double& z);
 
