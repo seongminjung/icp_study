@@ -32,6 +32,7 @@ Frame::Frame(const Frame& other) {
   map_height_ = other.map_height_;
   points_ = other.points_;
   heights_ = other.heights_;
+  lines_ = other.lines_;
   disabled_ = other.disabled_;
 }
 
@@ -41,11 +42,13 @@ time_t Frame::GetTimestamp() { return timestamp_; }
 double Frame::GetResolution() { return resolution_; }
 unsigned int Frame::GetMapWidth() { return map_width_; }
 unsigned int Frame::GetMapHeight() { return map_height_; }
-unsigned int Frame::GetSize() { return points_.cols(); }
+unsigned int Frame::GetNPoints() { return points_.cols(); }
 Eigen::MatrixXd Frame::GetPoints() { return points_; }
 Eigen::Vector2d Frame::GetOnePoint(unsigned int idx) { return points_.col(idx); }
 Eigen::VectorXd Frame::GetHeights() { return heights_; }
 double Frame::GetOneHeight(unsigned int idx) { return heights_(idx); }
+unsigned int Frame::GetNLines() { return lines_.cols(); }
+Eigen::MatrixXd Frame::GetLines() { return lines_; }
 Eigen::VectorXi Frame::GetDisabled() { return disabled_; }
 bool Frame::GetOnePointDisabled(unsigned int idx) { return disabled_(idx); }
 
@@ -61,6 +64,7 @@ void Frame::SetOnePoint(unsigned int idx, Eigen::Vector2d point) {
   points_(1, idx) = point(1);
 }
 void Frame::SetOneHeight(unsigned int idx, double height) { heights_(idx) = height; }
+void Frame::SetLines(Eigen::MatrixXd lines) { lines_ = lines; }
 void Frame::SetAllPointsDisabled(bool disabled) { disabled_ = Eigen::VectorXi::Ones(points_.cols()) * disabled; }
 void Frame::SetOnePointDisabled(unsigned int idx, bool disabled) { disabled_(idx) = disabled; }
 void Frame::ReserveSize(unsigned int size) {
@@ -104,9 +108,9 @@ void Frame::ExtractLine(int mode) {
 
   Eigen::MatrixXd points_tmp;   // 2 x N  // These are temporary variables, acts the same as points_ and heights_
   Eigen::VectorXd heights_tmp;  // 1 x N  // These are the output of the z-directional line extraction
-  line_hash_.reserve(n_voxel);
+  cell_hash_.reserve(n_voxel);
   points_tmp.resize(2, n_voxel);  // temporary
-  heights_tmp.resize(n_voxel);    // not temporary
+  heights_tmp.resize(n_voxel);    // not temporary. heights of every cell
 
   // Extract z-directional lines
   int idx1 = 0, idx2 = 1;
@@ -145,26 +149,37 @@ void Frame::ExtractLine(int mode) {
   // Extract x-directional lines
   idx1 = 0;
   idx2 = 1;
+  int n_x_lines = 0;  // Number of x-directional lines
   disabled_ = Eigen::VectorXi::Zero(n_cells);
+  lines_.resize(5, n_cells);  // Worst case
 
   while (idx2 < n_cells) {
-    if (points_tmp(1, idx2) == points_tmp(1, idx1) &&
+    if (int(points_tmp(1, idx2) / resolution_) == int(points_tmp(1, idx1) / resolution_) &&
         int((points_tmp(0, idx2) - points_tmp(0, idx1)) / resolution_) == idx2 - idx1) {
       idx2++;
     } else {
       if (idx2 - idx1 >= 5) {
         // Store start and (end + 1) points of lines
         disabled_.segment(idx1, idx2 - idx1).setOnes();  // segment(start, length) is the syntax for Eigen::VectorXi
-        line_hash_.emplace_back(voxel_hash_[idx1], voxel_hash_[idx2]);
+        double x1, y1, x2, y2;
+        HashToXY(cell_hash_[idx1], x1, y1);
+        HashToXY(cell_hash_[idx2 - 1], x2, y2);
+
+        // Get average height of the line
+        double h_avg = heights_tmp.segment(idx1, idx2 - idx1).mean();
+
+        lines_.col(n_x_lines) << x1, y1, x2, y2, h_avg;
+        n_x_lines++;
       }
       idx1 = idx2;
       idx2++;
     }
   }
 
-  int n_cells_not_in_line = n_cells - disabled_.sum();
+  int n_cells_not_in_line = n_cells - disabled_.sum();  // Number of cells not in line
   points_.resize(2, n_cells_not_in_line);
   heights_.resize(n_cells_not_in_line);
+  lines_.conservativeResize(5, n_x_lines);
 
   int new_idx = 0;
   for (int i = 0; i < n_cells; i++) {
@@ -199,6 +214,13 @@ void Frame::HashToCoord(unsigned int hash, double& x, double& y, double& z) {
   x = (double((hash & 0x000FFC00) >> 10) - 512) * resolution_;
   y = (double((hash & 0x3FF00000) >> 20) - 512) * resolution_;
   z = (double(hash & 0x000003FF) - 512) * resolution_;
+}
+
+void Frame::HashToXY(unsigned int hash, double& x, double& y) {
+  // unhashing
+  // type casting to double is imperative here to avoid unexpected line extraction fault
+  x = (double((hash & 0x000FFC00) >> 10) - 512) * resolution_;
+  y = (double((hash & 0x3FF00000) >> 20) - 512) * resolution_;
 }
 
 ////////////////////////////////
@@ -249,9 +271,9 @@ void Frame::RegisterPointCloud(Frame& source_tf) {
   // For each point in source_tf, find there is any duplicate in this frame. If not, add the point, height, and disabled
   // to this frame.
   int duplicate_count = 0;
-  for (int i = 0; i < source_tf.GetSize(); i++) {
+  for (int i = 0; i < source_tf.GetNPoints(); i++) {
     bool duplicate = false;
-    for (int j = 0; j < GetSize(); j++) {
+    for (int j = 0; j < GetNPoints(); j++) {
       // If there is a duplicate, break the loop. Duplicate means the x, y value is similar (resolution_)
       if (fabs(GetOnePoint(j)(0) - source_tf.GetOnePoint(i)(0)) < resolution_ &&
           fabs(GetOnePoint(j)(1) - source_tf.GetOnePoint(i)(1)) < resolution_) {

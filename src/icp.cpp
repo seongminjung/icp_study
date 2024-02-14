@@ -22,7 +22,7 @@ ICP::ICP() {
 }
 
 void ICP::PointCloudCallback(const sensor_msgs::PointCloud2::ConstPtr& point_cloud_msg) {
-  if (Map_.GetSize() == 0) {
+  if (Map_.GetNPoints() == 0) {
     Map_ = Frame(point_cloud_msg, 0);
     VisualizeFrame(marker_pub_, Map_, 3);
     Map_ = Frame(point_cloud_msg, 1);
@@ -38,10 +38,10 @@ void ICP::PointCloudCallback(const sensor_msgs::PointCloud2::ConstPtr& point_clo
 }
 
 // void ICP::PointCloudCallbackForEvaluation(const sensor_msgs::PointCloud2::ConstPtr& point_cloud_msg) {
-//   if (F1_.GetSize() == 0) {
+//   if (F1_.GetNPoints() == 0) {
 //     F1_ = Frame(point_cloud_msg);
 //     // VisualizeFrame(marker_pub_, F1_, 0);
-//   } else if (F2_.GetSize() == 0) {
+//   } else if (F2_.GetNPoints() == 0) {
 //     F2_ = Frame(point_cloud_msg);
 //     // VisualizeFrame(marker_pub_, F2_, 1);
 //     for (int i = 0; i < 1000; i++) {
@@ -111,8 +111,8 @@ void ICP::PointCloudCallbackForPCL(const sensor_msgs::PointCloud2::ConstPtr& poi
 //   int max_iter = 100;
 //   double thresh = 1e-5;
 
-//   unsigned int N_F1 = F1_.GetSize();
-//   unsigned int N_F2 = F2_.GetSize();
+//   unsigned int N_F1 = F1_.GetNPoints();
+//   unsigned int N_F2 = F2_.GetNPoints();
 
 //   Frame X(F2_);
 
@@ -132,14 +132,14 @@ void ICP::PointCloudCallbackForPCL(const sensor_msgs::PointCloud2::ConstPtr& poi
 //     Frame Y;
 
 //     X_Downsampled.RandomDownsample(0.05);  // Randomly subsample 5% from X
-//     Y.ReserveSize(X_Downsampled.GetSize());
+//     Y.ReserveSize(X_Downsampled.GetNPoints());
 
-//     // std::printf("X_Downsampled size: %d\n", X_Downsampled.GetSize());
+//     // std::printf("X_Downsampled size: %d\n", X_Downsampled.GetNPoints());
 
 //     std::vector<std::pair<int, double>> dist_vector;  // <index of X_Downsampled, distance>
-//     dist_vector.reserve(X_Downsampled.GetSize());
+//     dist_vector.reserve(X_Downsampled.GetNPoints());
 
-//     unsigned int N_Downsampled = X_Downsampled.GetSize();
+//     unsigned int N_Downsampled = X_Downsampled.GetNPoints();
 
 //     // Find the nearest neighbor for each point in X_Downsampled
 //     for (int i = 0; i < N_Downsampled; i++) {
@@ -215,19 +215,19 @@ void ICP::FindAlignment(Frame& X_frame, Frame& Y_frame, Eigen::Matrix3d& result)
   /// \return result: left top 2x2: R, right top 2x1: t, left bottom 1x1 s, center bottom 1x1: err
 
   // Test the inputs
-  if (X_frame.GetSize() != Y_frame.GetSize()) {
+  if (X_frame.GetNPoints() != Y_frame.GetNPoints()) {
     ROS_ERROR("X and Y have different sizes!");
   }
-  if (X_frame.GetSize() < 4) {
+  if (X_frame.GetNPoints() < 4) {
     ROS_ERROR("Need at least four pairs of points!");
   }
 
   // Get matrix without disabled points
   int num_disabled = X_frame.GetDisabled().sum();
-  Eigen::MatrixXd X(2, X_frame.GetSize() - num_disabled);
-  Eigen::MatrixXd Y(2, Y_frame.GetSize() - num_disabled);
+  Eigen::MatrixXd X(2, X_frame.GetNPoints() - num_disabled);
+  Eigen::MatrixXd Y(2, Y_frame.GetNPoints() - num_disabled);
   int idx = 0;
-  for (int i = 0; i < X_frame.GetSize(); i++) {
+  for (int i = 0; i < X_frame.GetNPoints(); i++) {
     if (!X_frame.GetOnePointDisabled(i)) {
       X.col(idx) = X_frame.GetOnePoint(i);
       Y.col(idx) = Y_frame.GetOnePoint(i);
@@ -297,8 +297,8 @@ double ICP::RunHeightICP() {
   int max_iter = 100;
   double thresh = 1e-5;
 
-  unsigned int N_Map = Map_.GetSize();
-  unsigned int N_Source = Source_.GetSize();
+  unsigned int N_Map = Map_.GetNPoints();
+  unsigned int N_Source = Source_.GetNPoints();
 
   // First, transform Source_ to the original frame
   Source_.Transform(R_, t_);
@@ -315,14 +315,14 @@ double ICP::RunHeightICP() {
     Frame Y;
 
     Source_downsampled.RandomDownsample(0.05);  // Randomly subsample 5% from Source_
-    Y.ReserveSize(Source_downsampled.GetSize());
+    Y.ReserveSize(Source_downsampled.GetNPoints());
 
-    // std::printf("Source_downsampled size: %d\n", Source_downsampled.GetSize());
+    // std::printf("Source_downsampled size: %d\n", Source_downsampled.GetNPoints());
 
     std::vector<std::pair<int, double>> dist_vector;  // <index of Source_downsampled, distance>
-    dist_vector.reserve(Source_downsampled.GetSize());
+    dist_vector.reserve(Source_downsampled.GetNPoints());
 
-    unsigned int N_Downsampled = Source_downsampled.GetSize();
+    unsigned int N_Downsampled = Source_downsampled.GetNPoints();
 
     // Find the nearest neighbor for each point in Source_downsampled
     for (int i = 0; i < N_Downsampled; i++) {
@@ -412,22 +412,22 @@ void ICP::FindHeightAlignment(Frame& X_frame, Frame& Y_frame, Eigen::Matrix3d& r
   /// \return result: left top 2x2: R, right top 2x1: t, left bottom 1x1 s, center bottom 1x1: err
 
   // Test the inputs
-  if (X_frame.GetSize() != Y_frame.GetSize()) {
+  if (X_frame.GetNPoints() != Y_frame.GetNPoints()) {
     ROS_ERROR("X and Y have different sizes!");
   }
-  if (X_frame.GetSize() < 4) {
+  if (X_frame.GetNPoints() < 4) {
     ROS_ERROR("Need at least four pairs of points!");
   }
 
   // Get matrix without disabled points
   int num_disabled = X_frame.GetDisabled().sum();
-  Eigen::MatrixXd X(2, X_frame.GetSize() - num_disabled);
-  Eigen::MatrixXd Y(2, Y_frame.GetSize() - num_disabled);
-  Eigen::VectorXd X_height(X_frame.GetSize() - num_disabled);
-  Eigen::VectorXd Y_height(Y_frame.GetSize() - num_disabled);
+  Eigen::MatrixXd X(2, X_frame.GetNPoints() - num_disabled);
+  Eigen::MatrixXd Y(2, Y_frame.GetNPoints() - num_disabled);
+  Eigen::VectorXd X_height(X_frame.GetNPoints() - num_disabled);
+  Eigen::VectorXd Y_height(Y_frame.GetNPoints() - num_disabled);
 
   int idx = 0;
-  for (int i = 0; i < X_frame.GetSize(); i++) {
+  for (int i = 0; i < X_frame.GetNPoints(); i++) {
     if (!X_frame.GetOnePointDisabled(i)) {
       X.col(idx) = X_frame.GetOnePoint(i);
       Y.col(idx) = Y_frame.GetOnePoint(i);

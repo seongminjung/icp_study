@@ -17,6 +17,7 @@ class Frame {
 
   Eigen::MatrixXd points_;    // 2 x N
   Eigen::VectorXd heights_;   // 1 x N
+  Eigen::MatrixXd lines_;     // 5 x M  (x1, y1, x2, y2, average height)
   Eigen::VectorXi disabled_;  // 1 x N
 
   // Hash vectors. Hash must be unsigned int (to use right shift operator)
@@ -35,11 +36,13 @@ class Frame {
   double GetResolution();
   unsigned int GetMapWidth();
   unsigned int GetMapHeight();
-  unsigned int GetSize();
+  unsigned int GetNPoints();
   Eigen::MatrixXd GetPoints();  // 2 x N
   Eigen::Vector2d GetOnePoint(unsigned int idx);
   Eigen::VectorXd GetHeights();  // 1 x N
   double GetOneHeight(unsigned int idx);
+  unsigned int GetNLines();
+  Eigen::MatrixXd GetLines();  // 4 x M
   Eigen::VectorXi GetDisabled();
   bool GetOnePointDisabled(unsigned int idx);
 
@@ -51,6 +54,7 @@ class Frame {
   void SetPoints(Eigen::MatrixXd points);  // 2 x N
   void SetOnePoint(unsigned int idx, Eigen::Vector2d point);
   void SetOneHeight(unsigned int idx, double height);
+  void SetLines(Eigen::MatrixXd lines);  // 4 x M
   void SetAllPointsDisabled(bool disabled);
   void SetOnePointDisabled(unsigned int idx, bool disabled);
   void ReserveSize(unsigned int size);
@@ -60,6 +64,7 @@ class Frame {
   void ExtractLine(int mode);
   unsigned int CoordToHash(double x, double y, double z);
   void HashToCoord(unsigned int hash, double& x, double& y, double& z);
+  void HashToXY(unsigned int hash, double& x, double& y);
 
   // Downsampling
   void RandomDownsample(double ratio);

@@ -67,7 +67,7 @@ void VisualizeFrame(ros::Publisher marker_pub, Frame& frame, int color) {
   visualization_msgs::MarkerArray marker_array;
   visualization_msgs::Marker marker;
 
-  for (int i = 0; i < frame.GetSize(); i++) {
+  for (int i = 0; i < frame.GetNPoints(); i++) {
     double x = frame.GetOnePoint(i)(0);
     double y = frame.GetOnePoint(i)(1);
     // double height = map_height_grid.GetCells()[i].height;
@@ -81,13 +81,13 @@ void VisualizeFrame(ros::Publisher marker_pub, Frame& frame, int color) {
     // Set the namespace and id for this marker. This serves to create a unique ID Any marker sent with the same
     // namespace and id will overwrite the old one
     if (color == 0) {
-      marker.ns = "frame_0";
+      marker.ns = "point_0";
     } else if (color == 1) {
-      marker.ns = "frame_1";
+      marker.ns = "point_1";
     } else if (color == 2) {
-      marker.ns = "frame_2";
+      marker.ns = "point_2";
     } else if (color == 3) {
-      marker.ns = "map";
+      marker.ns = "point_map";
     }
     marker.id = i;
     // Set the marker type. Initially this is CUBE, and cycles between that and SPHERE, ARROW, and CYLINDER
@@ -97,7 +97,7 @@ void VisualizeFrame(ros::Publisher marker_pub, Frame& frame, int color) {
     // Set the pose of the marker. This is a full 6DOF pose relative to the frame/time specified in the header
     marker.pose.position.x = x;
     marker.pose.position.y = y;
-    marker.pose.position.z = frame.GetOneHeight(i) / 2;
+    marker.pose.position.z = frame.GetOneHeight(i) / 2;  // 1.73 is the height of the sensor
     marker.pose.orientation.x = 0.0;
     marker.pose.orientation.y = 0.0;
     marker.pose.orientation.z = 0.0;
@@ -142,6 +142,72 @@ void VisualizeFrame(ros::Publisher marker_pub, Frame& frame, int color) {
     marker_array.markers.push_back(marker);
   }
 
+  for (int i = 0; i < frame.GetNLines(); i++) {
+    double x1 = frame.GetLines()(0, i);
+    double y1 = frame.GetLines()(1, i);
+    double x2 = frame.GetLines()(2, i);
+    double y2 = frame.GetLines()(3, i);
+    double h_avg = frame.GetLines()(4, i);
+
+    marker = visualization_msgs::Marker();
+    // Set the frame ID and timestamp.
+    marker.header.frame_id = "velo_link";
+    marker.header.stamp = ros::Time(frame.GetTimestamp());
+    // Set the namespace and id for this marker. This serves to create a unique ID Any marker sent with the same
+    // namespace and id will overwrite the old one
+    if (color == 0) {
+      marker.ns = "line_0";
+    } else if (color == 1) {
+      marker.ns = "line_1";
+    } else if (color == 2) {
+      marker.ns = "line_2";
+    } else if (color == 3) {
+      marker.ns = "line_map";
+    }
+    marker.id = i;
+    // Set the marker type. Initially this is CUBE, and cycles between that and SPHERE, ARROW, and CYLINDER
+    marker.type = visualization_msgs::Marker::CUBE;
+    // Set the marker action. Options are ADD, DELETE, and new in ROS Indigo: 3 (DELETEALL)
+    marker.action = visualization_msgs::Marker::ADD;
+    // Set the pose of the marker. This is a full 6DOF pose relative to the frame/time specified in the header
+    marker.pose.position.x = (x1 + x2) / 2;
+    marker.pose.position.y = y1;
+    marker.pose.position.z = h_avg / 2;  // 1.73 is the height of the sensor
+    marker.pose.orientation.x = 0.0;
+    marker.pose.orientation.y = 0.0;
+    marker.pose.orientation.z = 0.0;
+    marker.pose.orientation.w = 1.0;
+
+    // Set the scale of the marker -- 1x1x1 here means 1m on a side
+    marker.scale.x = x2 - x1;
+    marker.scale.y = 0.01;
+    marker.scale.z = h_avg;
+
+    if (color == 0) {
+      marker.color.r = 1;
+      marker.color.g = 0;
+      marker.color.b = 0;
+    } else if (color == 1) {
+      marker.color.r = 0;
+      marker.color.g = 1;
+      marker.color.b = 0;
+    } else if (color == 2) {
+      marker.color.r = 0;
+      marker.color.g = 0;
+      marker.color.b = 1;
+    } else if (color == 3) {
+      marker.color.r = 1;
+      marker.color.g = 1;
+      marker.color.b = 1;
+    }
+
+    marker.color.a = 0.5;
+
+    marker.lifetime = ros::Duration();
+
+    marker_array.markers.push_back(marker);
+  }
+
   marker_pub.publish(marker_array);
 }
 
@@ -152,7 +218,7 @@ void VisualizeLineBetweenMatchingPoints(ros::Publisher marker_pub, Frame F1, Fra
   Eigen::MatrixXd points1 = F1.GetPoints();
   Eigen::MatrixXd points2 = F2.GetPoints();
 
-  for (int i = 0; i < F1.GetSize(); i++) {
+  for (int i = 0; i < F1.GetNPoints(); i++) {
     double x1 = points1(0, i);
     double y1 = points1(1, i);
     // double height1 = cells1[i].height;
