@@ -106,11 +106,9 @@ void Frame::Voxelize(pcl::PointCloud<pcl::PointXYZ>& input) {
 void Frame::ExtractLine(int mode) {
   int n_voxel = voxel_hash_.size();
 
-  Eigen::MatrixXd points_tmp;   // 2 x N  // These are temporary variables, acts the same as points_ and heights_
   Eigen::VectorXd heights_tmp;  // 1 x N  // These are the output of the z-directional line extraction
   cell_hash_.reserve(n_voxel);
-  points_tmp.resize(2, n_voxel);  // temporary
-  heights_tmp.resize(n_voxel);    // not temporary. heights of every cell
+  heights_tmp.resize(n_voxel);  // not temporary. heights of every cell
 
   // Extract z-directional lines
   int idx1 = 0, idx2 = 1;
@@ -123,9 +121,6 @@ void Frame::ExtractLine(int mode) {
         // Add point only when x1 or y1 is not the same as the last entry's. This is for avoiding creating duplicate
         // points.
         if (n_cells == 0 || (n_cells > 0 && (voxel_hash_[idx1] >> 10) != (cell_hash_[n_cells - 1] >> 10))) {
-          double x, y, z;                           // temporary
-          HashToCoord(voxel_hash_[idx1], x, y, z);  // temporary
-          points_tmp.col(n_cells) << x, y;          // temporary
           cell_hash_.emplace_back(voxel_hash_[idx1]);
           heights_tmp(n_cells) = double((voxel_hash_[idx2 - 1] - voxel_hash_[idx1]) & 0x000003FF) * resolution_;
           ++n_cells;
@@ -136,31 +131,24 @@ void Frame::ExtractLine(int mode) {
     }
   }
 
-  points_tmp.conservativeResize(2, n_cells);  // temporary
   heights_tmp.conservativeResize(n_cells);
-
-  if (mode == 0) {
-    points_ = points_tmp;
-    heights_ = heights_tmp;
-    disabled_ = Eigen::VectorXi::Zero(n_cells);
-    return;
-  }
 
   // Extract x-directional lines
   idx1 = 0;
   idx2 = 1;
-  int n_x_lines = 0;  // Number of x-directional lines
-  disabled_ = Eigen::VectorXi::Zero(n_cells);
-  lines_.resize(5, n_cells);  // Worst case
+  unsigned int n_x_lines = 0;            // Number of x-directional lines
+  unsigned int n_cells_not_in_line = 0;  // Number of cells not in line
+
+  points_.resize(2, n_cells);  // Worst cases
+  heights_.resize(n_cells);
+  lines_.resize(5, n_cells);
 
   while (idx2 < n_cells) {
-    if (int(points_tmp(1, idx2) / resolution_) == int(points_tmp(1, idx1) / resolution_) &&
-        int((points_tmp(0, idx2) - points_tmp(0, idx1)) / resolution_) == idx2 - idx1) {
-      idx2++;
+    if ((cell_hash_[idx2] >> 10) - (cell_hash_[idx1] >> 10) == idx2 - idx1) {
+      ++idx2;
     } else {
       if (idx2 - idx1 >= 5) {
         // Store start and (end + 1) points of lines
-        disabled_.segment(idx1, idx2 - idx1).setOnes();  // segment(start, length) is the syntax for Eigen::VectorXi
         double x1, y1, x2, y2;
         HashToXY(cell_hash_[idx1], x1, y1);
         HashToXY(cell_hash_[idx2 - 1], x2, y2);
@@ -169,28 +157,25 @@ void Frame::ExtractLine(int mode) {
         double h_avg = heights_tmp.segment(idx1, idx2 - idx1).mean();
 
         lines_.col(n_x_lines) << x1, y1, x2, y2, h_avg;
-        n_x_lines++;
+        ++n_x_lines;
+      } else {
+        // Store all points in the line to points_ and heights_
+        for (int i = idx1; i < idx2; i++) {
+          double x, y;
+          HashToXY(cell_hash_[i], x, y);
+          points_.col(n_cells_not_in_line + i - idx1) << x, y;
+          heights_(n_cells_not_in_line + i - idx1) = heights_tmp(i);
+        }
+        n_cells_not_in_line += idx2 - idx1;
       }
       idx1 = idx2;
-      idx2++;
+      ++idx2;
     }
   }
 
-  int n_cells_not_in_line = n_cells - disabled_.sum();  // Number of cells not in line
-  points_.resize(2, n_cells_not_in_line);
-  heights_.resize(n_cells_not_in_line);
+  points_.conservativeResize(2, n_cells_not_in_line);
+  heights_.conservativeResize(n_cells_not_in_line);
   lines_.conservativeResize(5, n_x_lines);
-
-  int new_idx = 0;
-  for (int i = 0; i < n_cells; i++) {
-    if (!disabled_(i)) {
-      double x, y, z;
-      HashToCoord(cell_hash_[i], x, y, z);
-      points_.col(new_idx) << x, y;
-      heights_(new_idx) = heights_tmp(i);
-      new_idx++;
-    }
-  }
   disabled_.setZero(n_cells_not_in_line);
 }
 
@@ -206,14 +191,6 @@ unsigned int Frame::CoordToHash(double x, double y, double z) {
   unsigned int hash = hashed_x + hashed_y + hashed_z;
 
   return hash;
-}
-
-void Frame::HashToCoord(unsigned int hash, double& x, double& y, double& z) {
-  // unhashing
-  // type casting to double is imperative here to avoid unexpected line extraction fault
-  x = (double((hash & 0x000FFC00) >> 10) - 512) * resolution_;
-  y = (double((hash & 0x3FF00000) >> 20) - 512) * resolution_;
-  z = (double(hash & 0x000003FF) - 512) * resolution_;
 }
 
 void Frame::HashToXY(unsigned int hash, double& x, double& y) {
