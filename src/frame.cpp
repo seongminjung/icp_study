@@ -240,6 +240,10 @@ void Frame::RandomDownsample(double ratio) {
 // Transformations
 void Frame::Transform(Eigen::Matrix2d R, Eigen::Vector2d t) {
   points_ = R * points_ + t * Eigen::MatrixXd::Ones(1, points_.cols());
+  lines_.block(0, 0, 2, lines_.cols()) =
+      R * lines_.block(0, 0, 2, lines_.cols()) + t * Eigen::MatrixXd::Ones(1, lines_.cols());
+  lines_.block(2, 0, 2, lines_.cols()) =
+      R * lines_.block(2, 0, 2, lines_.cols()) + t * Eigen::MatrixXd::Ones(1, lines_.cols());
 }
 
 ////////////////////////////////
@@ -268,5 +272,9 @@ void Frame::RegisterPointCloud(Frame& source_tf) {
       SetOnePointDisabled(disabled_.size() - 1, source_tf.GetOnePointDisabled(i));
     }
   }
-  std::cout << "duplicate count: " << duplicate_count << std::endl;
+  for (int i = 0; i < source_tf.GetNLines(); i++) {
+    lines_.conservativeResize(5, lines_.cols() + 1);
+    lines_.col(lines_.cols() - 1) = source_tf.GetLines().col(i);
+  }
+  std::cout << "duplicate points count: " << duplicate_count << std::endl;
 }
