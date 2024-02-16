@@ -452,7 +452,7 @@ double ICP::RunHeightICP() {
   Map_.RegisterPointCloud(Source_);
   VisualizeFrame(marker_pub_, Map_, 3);
 
-  // std::cout << "err: " << err << std::endl;
+  std::cout << "err: " << err << std::endl;
   return err;
 }
 
