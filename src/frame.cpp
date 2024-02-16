@@ -203,18 +203,21 @@ void Frame::HashToXY(unsigned int hash, double& x, double& y) {
 ////////////////////////////////
 // Downsampling
 void Frame::RandomDownsample(double ratio) {
-  // set disabled_ to all false
-  SetAllPointsDisabled(false);
+  unsigned int new_n_points = std::max(int(points_.cols() * ratio), 4);  // 4 is the minimum number of points for ICP
+  unsigned int n = 0;  // Counter for the number of points after downsampling
 
-  // set random seed
+  // set disabled_ to all true
+  SetAllPointsDisabled(true);
+
+  // Randomly enable points, but the number of enabled points after downsampling should be equal to or more than 4.
   std::random_device rd;
   std::mt19937 gen(rd());
-  std::uniform_real_distribution<> dis(0.0, 1.0);
-
-  // set disabled_ to true for ratio of points
-  for (int i = 0; i < points_.cols(); i++) {
-    if (dis(gen) > ratio) {
-      SetOnePointDisabled(i, true);
+  std::uniform_int_distribution<int> dis(0, points_.cols() - 1);
+  while (n < new_n_points) {
+    int idx = dis(gen);
+    if (GetOnePointDisabled(idx)) {
+      SetOnePointDisabled(idx, false);
+      n++;
     }
   }
 
