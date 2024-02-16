@@ -315,7 +315,7 @@ double ICP::RunHeightICP() {
     Frame Source_downsampled(Source_);
     Frame Y;
 
-    Source_downsampled.RandomDownsample(1);  // Randomly subsample 5% from Source_
+    Source_downsampled.RandomDownsample(0.05);  // Randomly subsample 5% from Source_
 
     unsigned int N_Downsampled = Source_downsampled.GetNPoints();
 

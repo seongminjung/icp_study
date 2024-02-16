@@ -62,8 +62,6 @@ class Frame {
   // Converters
   void Voxelize(pcl::PointCloud<pcl::PointXYZ>& input);
   void ExtractLine(int mode);
-  unsigned int CoordToHash(double x, double y, double z);
-  void HashToXY(unsigned int hash, double& x, double& y);
 
   // Downsampling
   void RandomDownsample(double ratio);

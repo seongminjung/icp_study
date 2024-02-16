@@ -84,7 +84,7 @@ void Frame::Voxelize(pcl::PointCloud<pcl::PointXYZ>& input) {
   // First pass: go over all points and insert them into the point_hash_ vector with calculated hash. Points with the
   // same hash value will contribute to the same point of resulting CloudPoint
   for (int i = 0; i < input.points.size(); i++) {
-    point_hash_.emplace_back(CoordToHash(input.points[i].x, input.points[i].y, input.points[i].z));
+    point_hash_.emplace_back(CoordToHash(input.points[i].x, input.points[i].y, input.points[i].z, resolution_));
   }
 
   // Second pass: sort the point_hash_ vector so all points belonging to the same output cell will be next to each other
@@ -152,8 +152,8 @@ void Frame::ExtractLine(int mode) {
       if (idx2 - idx1 >= 5) {
         // Store start and (end + 1) points of lines
         double x1, y1, x2, y2;
-        HashToXY(cell_hash_[idx1], x1, y1);
-        HashToXY(cell_hash_[idx2 - 1], x2, y2);
+        HashToXY(cell_hash_[idx1], x1, y1, resolution_);
+        HashToXY(cell_hash_[idx2 - 1], x2, y2, resolution_);
 
         // Get average height of the line
         double h_avg = heights_tmp.segment(idx1, idx2 - idx1).mean();
@@ -164,7 +164,7 @@ void Frame::ExtractLine(int mode) {
         // Store all points in the line to points_ and heights_
         for (int i = idx1; i < idx2; i++) {
           double x, y;
-          HashToXY(cell_hash_[i], x, y);
+          HashToXY(cell_hash_[i], x, y, resolution_);
           points_.col(n_cells_not_in_line + i - idx1) << x, y;
           heights_(n_cells_not_in_line + i - idx1) = heights_tmp(i);
         }
@@ -179,27 +179,6 @@ void Frame::ExtractLine(int mode) {
   heights_.conservativeResize(n_cells_not_in_line);
   lines_.conservativeResize(5, n_x_lines);
   disabled_.setZero(n_cells_not_in_line);
-}
-
-unsigned int Frame::CoordToHash(double x, double y, double z) {
-  unsigned int rounded_x = round(x / resolution_) + 512;  // offset 512
-  unsigned int rounded_y = round(y / resolution_) + 512;
-  unsigned int rounded_z = round(z / resolution_) + 512;
-
-  // hashing
-  unsigned int hashed_x = (rounded_x << 10) & 0x000FFC00;
-  unsigned int hashed_y = (rounded_y << 20) & 0x3FF00000;
-  unsigned int hashed_z = rounded_z & 0x000003FF;
-  unsigned int hash = hashed_x + hashed_y + hashed_z;
-
-  return hash;
-}
-
-void Frame::HashToXY(unsigned int hash, double& x, double& y) {
-  // unhashing
-  // type casting to double is imperative here to avoid unexpected line extraction fault
-  x = (double((hash & 0x000FFC00) >> 10) - 512) * resolution_;
-  y = (double((hash & 0x3FF00000) >> 20) - 512) * resolution_;
 }
 
 ////////////////////////////////
