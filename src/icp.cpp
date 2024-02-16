@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "icp_study/frame.h"
+#include "icp_study/utils.h"
 #include "icp_study/visualization.h"
 
 ICP::ICP() {
@@ -297,8 +298,8 @@ double ICP::RunHeightICP() {
   int max_iter = 100;
   double thresh = 1e-5;
 
-  unsigned int N_Map = Map_.GetNPoints();
-  unsigned int N_Source = Source_.GetNPoints();
+  unsigned int N_Points_Map = Map_.GetNPoints();
+  unsigned int N_Lines_Map = Map_.GetNLines();
 
   // First, transform Source_ to the original frame
   Source_.Transform(R_, t_);
@@ -314,21 +315,27 @@ double ICP::RunHeightICP() {
     Frame Source_downsampled(Source_);
     Frame Y;
 
-    Source_downsampled.RandomDownsample(0.05);  // Randomly subsample 5% from Source_
-    Y.ReserveSize(Source_downsampled.GetNPoints());
-
-    // std::printf("Source_downsampled size: %d\n", Source_downsampled.GetNPoints());
-
-    std::vector<std::pair<int, double>> dist_vector;  // <index of Source_downsampled, distance>
-    dist_vector.reserve(Source_downsampled.GetNPoints());
+    Source_downsampled.RandomDownsample(1);  // Randomly subsample 5% from Source_
 
     unsigned int N_Downsampled = Source_downsampled.GetNPoints();
+
+    Y.ReserveSize(N_Downsampled);
+
+    // std::printf("Source_downsampled size: %d\n", N_Downsampled);
+
+    std::vector<std::pair<int, double>> dist_vector;  // <index of Source_downsampled, distance>
+    dist_vector.reserve(N_Downsampled);
+
+    Eigen::Vector2d foot_of_perpendicular;  // Used for point-to-line distance calculation below
 
     // Find the nearest neighbor for each point in Source_downsampled
     for (int i = 0; i < N_Downsampled; i++) {
       double min_dist = 1e10;
       int min_idx = 0;
-      for (int j = 0; j < N_Map; j++) {
+      bool matched_to_line = false;
+
+      // Point-to-point distance
+      for (int j = 0; j < N_Points_Map; j++) {
         double dist_sq = pow(Source_downsampled.GetOnePoint(i)(0) - Map_.GetOnePoint(j)(0), 2) +
                          pow(Source_downsampled.GetOnePoint(i)(1) - Map_.GetOnePoint(j)(1), 2);
         if (dist_sq < min_dist) {
@@ -339,9 +346,53 @@ double ICP::RunHeightICP() {
           // }
         }
       }
+
+      // Point-to-line distance
+      for (int j = 0; j < N_Lines_Map; j++) {
+        ////////////////////////////////////////////
+        // Calculate the distance and a foot of perpendicular from a point p to a line segment defined by two points a
+        // and b.
+        // a = Map_.GetLines().block(0, j, 2, 1), b = Map_.GetLines().block(2, j, 2, 1) p =
+        // Source_downsampled.GetOnePoint(i)
+        Eigen::Vector2d ap = Source_downsampled.GetOnePoint(i) - Map_.GetLines().block(0, j, 2, 1);
+        Eigen::Vector2d ab = Map_.GetLines().block(2, j, 2, 1) - Map_.GetLines().block(0, j, 2, 1);
+
+        // Calculate the dot product
+        double ab2 = ab.dot(ab);
+        double ap_ab = ap.dot(ab);
+        // Calculate the magnitude of the projection of ap onto ab, normalized by the length of ab
+        double t = ap_ab / ab2;
+
+        // if the foot of perpendicular is outside the line segment, skip this line
+        if (t < 0 || t > 1) {
+          continue;
+        }
+
+        // Find the projection point (which is a foot of perpendicular from p to the line segment)
+        Eigen::Vector2d projection = Map_.GetLines().block(0, j, 2, 1) + ab * t;
+
+        // Calculate the distance from p to the projection point
+        double dist_sq = (Source_downsampled.GetOnePoint(i) - projection).squaredNorm();
+        ////////////////////////////////////////////
+
+        // Update only when the distance is smaller than min_dist
+        if (dist_sq < min_dist) {
+          min_dist = dist_sq;
+          min_idx = j;
+          foot_of_perpendicular = projection;
+          matched_to_line = true;
+        }
+      }
+
+      // Save the nearest neighbor and its height
       dist_vector.emplace_back(i, min_dist);
-      Y.SetOnePoint(i, Map_.GetOnePoint(min_idx));
-      Y.SetOneHeight(i, Map_.GetOneHeight(min_idx));
+      if (matched_to_line) {
+        Y.SetOnePoint(i, foot_of_perpendicular);
+        Y.SetOneHeight(i, Map_.GetLines()(4, min_idx));
+      } else {
+        Y.SetOnePoint(i, Map_.GetOnePoint(min_idx));
+        Y.SetOneHeight(i, Map_.GetOneHeight(min_idx));
+      }
     }
 
     // sort dist_vector by distance

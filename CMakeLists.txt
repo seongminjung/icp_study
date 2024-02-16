@@ -130,6 +130,7 @@ include_directories(
 add_library(${PROJECT_NAME}
   src/icp.cpp
   src/frame.cpp
+  src/utils.cpp
 )
 
 ## Add cmake target dependencies of the library
