@@ -73,6 +73,7 @@ class Frame {
 
   // Registering
   void RegisterPointCloud(Frame& source_tf);
+  double DistancePointToLineSegment(const Eigen::Vector2d& p, const Eigen::Vector2d& a, const Eigen::Vector2d& b);
 };
 
 #endif  // FRAME_H

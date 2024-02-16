@@ -254,16 +254,35 @@ void Frame::Transform(Eigen::Matrix2d R, Eigen::Vector2d t) {
 void Frame::RegisterPointCloud(Frame& source_tf) {
   // For each point in source_tf, find there is any duplicate in this frame. If not, add the point, height, and disabled
   // to this frame.
-  int duplicate_count = 0;
+  int n_duplicate_p2p = 0;
+  int n_duplicate_p2l = 0;
+  int n_duplicate_l2l = 0;
+
   for (int i = 0; i < source_tf.GetNPoints(); i++) {
     bool duplicate = false;
-    for (int j = 0; j < GetNPoints(); j++) {
-      // If there is a duplicate, break the loop. Duplicate means the x, y value is similar (resolution_)
-      if (fabs(GetOnePoint(j)(0) - source_tf.GetOnePoint(i)(0)) < resolution_ &&
-          fabs(GetOnePoint(j)(1) - source_tf.GetOnePoint(i)(1)) < resolution_) {
+
+    // point to line comparison
+    for (int j = 0; j < GetNLines(); j++) {
+      // If a point and a line is close enough, break the loop. (resolution_)
+      double d = DistancePointToLineSegment(source_tf.GetOnePoint(i), GetLines().block(0, j, 2, 1),
+                                            GetLines().block(2, j, 2, 1));
+      if (d < resolution_) {
         duplicate = true;
-        duplicate_count++;
+        n_duplicate_p2l++;
         break;
+      }
+    }
+
+    // point to point comparison
+    if (!duplicate) {
+      for (int j = 0; j < GetNPoints(); j++) {
+        // If there is a duplicate, break the loop. Duplicate means the x, y value is similar. (resolution_)
+        if (fabs(GetOnePoint(j)(0) - source_tf.GetOnePoint(i)(0)) < resolution_ &&
+            fabs(GetOnePoint(j)(1) - source_tf.GetOnePoint(i)(1)) < resolution_) {
+          duplicate = true;
+          n_duplicate_p2p++;
+          break;
+        }
       }
     }
     if (!duplicate) {
@@ -279,5 +298,25 @@ void Frame::RegisterPointCloud(Frame& source_tf) {
     lines_.conservativeResize(5, lines_.cols() + 1);
     lines_.col(lines_.cols() - 1) = source_tf.GetLines().col(i);
   }
-  std::cout << "duplicate points count: " << duplicate_count << std::endl;
+  std::cout << "n_duplicate_p2p: " << n_duplicate_p2p << std::endl;
+  std::cout << "n_duplicate_p2l: " << n_duplicate_p2l << std::endl;
+  std::cout << "n_duplicate_l2l: " << n_duplicate_l2l << std::endl;
+}
+
+double Frame::DistancePointToLineSegment(const Eigen::Vector2d& p, const Eigen::Vector2d& a, const Eigen::Vector2d& b) {
+  // Function to calculate the distance from a point p to a line segment defined by two points a and b
+  Eigen::Vector2d ap = p - a;
+  Eigen::Vector2d ab = b - a;
+
+  // Calculate the dot product
+  double ab2 = ab.dot(ab);
+  double ap_ab = ap.dot(ab);
+  // Calculate the magnitude of the projection of ap onto ab, normalized by the length of ab
+  double t = std::max(0.0, std::min(1.0, ap_ab / ab2));
+
+  // Find the projection point
+  Eigen::Vector2d projection = a + ab * t;
+
+  // Calculate the distance from p to the projection point
+  return (p - projection).norm();
 }

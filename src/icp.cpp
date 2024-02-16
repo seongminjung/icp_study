@@ -23,10 +23,10 @@ ICP::ICP() {
 
 void ICP::PointCloudCallback(const sensor_msgs::PointCloud2::ConstPtr& point_cloud_msg) {
   if (Map_.GetNPoints() == 0) {
-    Map_ = Frame(point_cloud_msg, 0);
-    VisualizeFrame(marker_pub_, Map_, 3);
+    // Map_ = Frame(point_cloud_msg, 0);
+    // VisualizeFrame(marker_pub_, Map_, 1);
     Map_ = Frame(point_cloud_msg, 1);
-    VisualizeFrame(marker_pub_, Map_, 1);
+    VisualizeFrame(marker_pub_, Map_, 3);
   } else {
     Source_ = Frame(point_cloud_msg, 1);
     std::chrono::system_clock::time_point t_start = std::chrono::system_clock::now();
