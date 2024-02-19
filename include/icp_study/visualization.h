@@ -173,14 +173,17 @@ void VisualizeFrame(ros::Publisher marker_pub, Frame& frame, int color) {
     marker.pose.position.x = (x1 + x2) / 2;
     marker.pose.position.y = y1;
     marker.pose.position.z = h_avg / 2;  // 1.73 is the height of the sensor
+
+    // Calculate the orientation of the line
+    double angle = atan2(y2 - y1, x2 - x1);
     marker.pose.orientation.x = 0.0;
     marker.pose.orientation.y = 0.0;
-    marker.pose.orientation.z = 0.0;
-    marker.pose.orientation.w = 1.0;
+    marker.pose.orientation.z = sin(angle / 2);
+    marker.pose.orientation.w = cos(angle / 2);
 
     // Set the scale of the marker -- 1x1x1 here means 1m on a side
-    marker.scale.x = x2 - x1;
-    marker.scale.y = 0.01;
+    marker.scale.x = sqrt(pow(x2 - x1, 2) + pow(y2 - y1, 2));
+    marker.scale.y = frame.GetResolution();
     marker.scale.z = h_avg;
 
     if (color == 0) {
