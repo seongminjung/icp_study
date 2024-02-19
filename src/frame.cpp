@@ -11,7 +11,7 @@ Frame::Frame(const sensor_msgs::PointCloud2::ConstPtr& point_cloud_msg, int mode
   pcl::fromROSMsg(*point_cloud_msg, *ptr_cloud);
 
   // make 10 x 10 grid with resolution of 0.2 meter
-  timestamp_ = point_cloud_msg->header.stamp.toSec();
+  timestamp_ = point_cloud_msg->header.stamp;
   resolution_ = 0.2;
   map_width_ = 1024;
   map_height_ = 1024;
@@ -40,7 +40,7 @@ Frame::Frame(const Frame& other) {
 
 ////////////////////////////////
 // Getters
-time_t Frame::GetTimestamp() { return timestamp_; }
+ros::Time Frame::GetTimestamp() { return timestamp_; }
 double Frame::GetResolution() { return resolution_; }
 unsigned int Frame::GetMapWidth() { return map_width_; }
 unsigned int Frame::GetMapHeight() { return map_height_; }
@@ -56,7 +56,7 @@ bool Frame::GetOnePointDisabled(unsigned int idx) { return disabled_(idx); }
 
 ////////////////////////////////
 // Setters
-void Frame::SetTimestamp(time_t timestamp) { timestamp_ = timestamp; }
+void Frame::SetTimestamp(ros::Time timestamp) { timestamp_ = timestamp; }
 void Frame::SetResolution(double resolution) { resolution_ = resolution; }
 void Frame::SetMapWidth(unsigned int width) { map_width_ = width; }
 void Frame::SetMapHeight(unsigned int height) { map_height_ = height; }

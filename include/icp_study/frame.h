@@ -9,7 +9,7 @@
 
 class Frame {
  private:
-  time_t timestamp_;
+  ros::Time timestamp_;
   float resolution_ = 0.2;          // meter per pixel
   unsigned int map_width_ = 1024;   // total width of the frame
   unsigned int map_height_ = 1024;  // total height of the frame
@@ -32,7 +32,7 @@ class Frame {
   Frame(const Frame& other);  // copy constructor
 
   // Getters
-  time_t GetTimestamp();
+  ros::Time GetTimestamp();
   double GetResolution();
   unsigned int GetMapWidth();
   unsigned int GetMapHeight();
@@ -47,7 +47,7 @@ class Frame {
   bool GetOnePointDisabled(unsigned int idx);
 
   // Setters
-  void SetTimestamp(time_t timestamp);
+  void SetTimestamp(ros::Time timestamp);
   void SetResolution(double resolution);
   void SetMapWidth(unsigned int width);
   void SetMapHeight(unsigned int height);
