@@ -43,6 +43,7 @@ class Frame {
   double GetOneHeight(unsigned int idx);
   unsigned int GetNLines();
   Eigen::MatrixXd GetLines();  // 4 x M
+  Eigen::VectorXd GetOneLine(unsigned int idx);
   Eigen::VectorXi GetDisabled();
   bool GetOnePointDisabled(unsigned int idx);
 

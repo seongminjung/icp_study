@@ -51,6 +51,7 @@ Eigen::VectorXd Frame::GetHeights() { return heights_; }
 double Frame::GetOneHeight(unsigned int idx) { return heights_(idx); }
 unsigned int Frame::GetNLines() { return lines_.cols(); }
 Eigen::MatrixXd Frame::GetLines() { return lines_; }
+Eigen::VectorXd Frame::GetOneLine(unsigned int idx) { return lines_.col(idx); }
 Eigen::VectorXi Frame::GetDisabled() { return disabled_; }
 bool Frame::GetOnePointDisabled(unsigned int idx) { return disabled_(idx); }
 
@@ -321,7 +322,7 @@ void Frame::RegisterPointCloud(Frame& source_tf) {
     }
 
     if (!duplicate) {
-      lines_.col(map_n_lines) = source_tf.GetLines().col(i);
+      lines_.col(map_n_lines) = source_tf.GetOneLine(i);
       map_n_lines++;
     }
   }

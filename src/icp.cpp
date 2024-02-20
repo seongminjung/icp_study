@@ -388,7 +388,7 @@ double ICP::RunHeightICP() {
       dist_vector.emplace_back(i, min_dist);
       if (matched_to_line) {
         Y.SetOnePoint(i, foot_of_perpendicular);
-        Y.SetOneHeight(i, Map_.GetLines()(4, min_idx));
+        Y.SetOneHeight(i, Map_.GetOneLine(min_idx)(4));
       } else {
         Y.SetOnePoint(i, Map_.GetOnePoint(min_idx));
         Y.SetOneHeight(i, Map_.GetOneHeight(min_idx));

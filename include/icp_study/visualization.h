@@ -143,11 +143,11 @@ void VisualizeFrame(ros::Publisher marker_pub, Frame& frame, int color) {
   }
 
   for (int i = 0; i < frame.GetNLines(); i++) {
-    double x1 = frame.GetLines()(0, i);
-    double y1 = frame.GetLines()(1, i);
-    double x2 = frame.GetLines()(2, i);
-    double y2 = frame.GetLines()(3, i);
-    double h_avg = frame.GetLines()(4, i);
+    double x1 = frame.GetOneLine(i)(0);
+    double y1 = frame.GetOneLine(i)(1);
+    double x2 = frame.GetOneLine(i)(2);
+    double y2 = frame.GetOneLine(i)(3);
+    double h_avg = frame.GetOneLine(i)(4);
 
     marker = visualization_msgs::Marker();
     // Set the frame ID and timestamp.
