@@ -58,6 +58,7 @@ class Frame {
   void SetAllPointsDisabled(bool disabled);
   void SetOnePointDisabled(unsigned int idx, bool disabled);
   void ReserveSize(unsigned int size);
+  void RemoveOneLine(unsigned int idx);
 
   // Converters
   void Voxelize(pcl::PointCloud<pcl::PointXYZ>& input);

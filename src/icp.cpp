@@ -16,7 +16,7 @@
 
 ICP::ICP() {
   marker_pub_ = nh_.advertise<visualization_msgs::MarkerArray>("visualization_marker/frame", 1);
-  point_cloud_sub_ = nh_.subscribe("/kitti/velo/pointcloud", 1, &ICP::PointCloudCallback, this);
+  point_cloud_sub_ = nh_.subscribe("/kitti/velo/pointcloud", 1000, &ICP::PointCloudCallback, this);
 
   R_ = Eigen::Matrix2d::Identity();
   t_ = Eigen::Vector2d::Zero();
@@ -34,7 +34,7 @@ void ICP::PointCloudCallback(const sensor_msgs::PointCloud2::ConstPtr& point_clo
     RunHeightICP();
     std::chrono::system_clock::time_point t_end = std::chrono::system_clock::now();
     std::chrono::duration<double> t_reg = t_end - t_start;
-    std::cout << "Takes " << t_reg.count() << " sec..." << std::endl;
+    std::cout << " " << t_reg.count() << std::endl;
   }
 }
 
@@ -405,7 +405,6 @@ double ICP::RunHeightICP() {
     }
 
     VisualizeLineBetweenMatchingPoints(marker_pub_, Source_downsampled, Y);
-    VisualizeFrame(marker_pub_, Source_, 2);
 
     Eigen::Matrix3d result;
     FindHeightAlignment(Source_downsampled, Y, result);  // left top 2x2: R, right top 2x1: t, left bottom 1x1: err
@@ -419,7 +418,7 @@ double ICP::RunHeightICP() {
 
     // Update Source_
     Source_.Transform(R_step, t_step);
-    // VisualizeFrame(marker_pub_, Source_, 2);
+    VisualizeFrame(marker_pub_, Source_, 2);
 
     // Print R, t, err
     // std::cout << "R: " << std::endl << R << std::endl;
@@ -452,7 +451,7 @@ double ICP::RunHeightICP() {
   Map_.RegisterPointCloud(Source_);
   VisualizeFrame(marker_pub_, Map_, 3);
 
-  std::cout << "err: " << err << std::endl;
+  std::cout << err;
   return err;
 }
 

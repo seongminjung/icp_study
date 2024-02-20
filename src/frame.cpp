@@ -74,6 +74,11 @@ void Frame::ReserveSize(unsigned int size) {
   heights_.resize(size);
   disabled_.resize(size);
 }
+void Frame::RemoveOneLine(unsigned int idx) {
+  // Remove one line from lines_
+  lines_.block(0, idx, 5, lines_.cols() - idx - 1) = lines_.block(0, idx + 1, 5, lines_.cols() - idx - 1);
+  lines_.conservativeResize(5, lines_.cols() - 1);
+}
 
 ////////////////////////////////
 // Converters
@@ -233,11 +238,17 @@ void Frame::Transform(Eigen::Matrix2d R, Eigen::Vector2d t) {
 ////////////////////////////////
 // Registering
 void Frame::RegisterPointCloud(Frame& source_tf) {
-  // For each point in source_tf, find there is any duplicate in this frame. If not, add the point, height, and disabled
-  // to this frame.
+  // For each point in source_tf, find if there is any duplicate in this frame. If not, add the point, height, and
+  // disabled to this frame.
   int n_duplicate_p2p = 0;
   int n_duplicate_p2l = 0;
   int n_duplicate_l2l = 0;
+
+  int map_n_points = points_.cols();
+  int sum_n_points = map_n_points + source_tf.GetNPoints();
+  points_.conservativeResize(2, sum_n_points);
+  heights_.conservativeResize(sum_n_points);
+  disabled_.conservativeResize(sum_n_points);
 
   for (int i = 0; i < source_tf.GetNPoints(); i++) {
     bool duplicate = false;
@@ -266,17 +277,54 @@ void Frame::RegisterPointCloud(Frame& source_tf) {
         }
       }
     }
+
     if (!duplicate) {
-      points_.conservativeResize(2, points_.cols() + 1);
-      heights_.conservativeResize(heights_.size() + 1);
-      disabled_.conservativeResize(disabled_.size() + 1);
-      SetOnePoint(points_.cols() - 1, source_tf.GetOnePoint(i));
-      SetOneHeight(heights_.size() - 1, source_tf.GetOneHeight(i));
-      SetOnePointDisabled(disabled_.size() - 1, source_tf.GetOnePointDisabled(i));
+      points_.col(map_n_points) = source_tf.GetOnePoint(i);
+      heights_(map_n_points) = source_tf.GetOneHeight(i);
+      disabled_(map_n_points) = source_tf.GetOnePointDisabled(i);
+      map_n_points++;
     }
   }
+
+  points_.conservativeResize(2, map_n_points);
+  heights_.conservativeResize(map_n_points);
+  disabled_.conservativeResize(map_n_points);
+
+  int map_n_lines = lines_.cols();
+  int sum_n_lines = map_n_lines + source_tf.GetNLines();
+  lines_.conservativeResize(5, sum_n_lines);
+
+  // For each line in source_tf, find if there is any duplicate in this frame. If not, add the line to this frame.
   for (int i = 0; i < source_tf.GetNLines(); i++) {
-    lines_.conservativeResize(5, lines_.cols() + 1);
-    lines_.col(lines_.cols() - 1) = source_tf.GetLines().col(i);
+    bool duplicate = false;
+
+    for (int j = 0; j < GetNLines(); j++) {
+      // If there is a duplicate, break the loop.
+      double d1_s2m = DistancePointToLineSegment(source_tf.GetLines().block(0, i, 2, 1), GetLines().block(0, j, 2, 1),
+                                                 GetLines().block(2, j, 2, 1));
+      double d2_s2m = DistancePointToLineSegment(source_tf.GetLines().block(2, i, 2, 1), GetLines().block(0, j, 2, 1),
+                                                 GetLines().block(2, j, 2, 1));
+      double d1_m2s = DistancePointToLineSegment(GetLines().block(0, j, 2, 1), source_tf.GetLines().block(0, i, 2, 1),
+                                                 source_tf.GetLines().block(2, i, 2, 1));
+      double d2_m2s = DistancePointToLineSegment(GetLines().block(2, j, 2, 1), source_tf.GetLines().block(0, i, 2, 1),
+                                                 source_tf.GetLines().block(2, i, 2, 1));
+
+      if (d1_s2m < resolution_ && d2_s2m < resolution_) {
+        duplicate = true;
+        n_duplicate_l2l++;
+        break;
+      }
+      if (d1_m2s < resolution_ && d2_m2s < resolution_) {
+        RemoveOneLine(j);
+        map_n_lines--;
+      }
+    }
+
+    if (!duplicate) {
+      lines_.col(map_n_lines) = source_tf.GetLines().col(i);
+      map_n_lines++;
+    }
   }
+
+  lines_.conservativeResize(5, map_n_lines);
 }
