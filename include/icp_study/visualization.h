@@ -171,7 +171,7 @@ void VisualizeFrame(ros::Publisher marker_pub, Frame& frame, int color) {
     marker.action = visualization_msgs::Marker::ADD;
     // Set the pose of the marker. This is a full 6DOF pose relative to the frame/time specified in the header
     marker.pose.position.x = (x1 + x2) / 2;
-    marker.pose.position.y = y1;
+    marker.pose.position.y = (y1 + y2) / 2;
     marker.pose.position.z = h_avg / 2;  // 1.73 is the height of the sensor
 
     // Calculate the orientation of the line

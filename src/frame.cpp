@@ -299,15 +299,15 @@ void Frame::RegisterPointCloud(Frame& source_tf) {
   for (int i = 0; i < source_tf.GetNLines(); i++) {
     bool duplicate = false;
 
-    for (int j = 0; j < GetNLines(); j++) {
+    for (int j = 0; j < map_n_lines; j++) {
       // If there is a duplicate, break the loop.
-      double d1_s2m = DistancePointToLineSegment(source_tf.GetLines().block(0, i, 2, 1), GetLines().block(0, j, 2, 1),
-                                                 GetLines().block(2, j, 2, 1));
-      double d2_s2m = DistancePointToLineSegment(source_tf.GetLines().block(2, i, 2, 1), GetLines().block(0, j, 2, 1),
-                                                 GetLines().block(2, j, 2, 1));
-      double d1_m2s = DistancePointToLineSegment(GetLines().block(0, j, 2, 1), source_tf.GetLines().block(0, i, 2, 1),
+      double d1_s2m = DistancePointToLineSegment(source_tf.GetLines().block(0, i, 2, 1), lines_.block(0, j, 2, 1),
+                                                 lines_.block(2, j, 2, 1));
+      double d2_s2m = DistancePointToLineSegment(source_tf.GetLines().block(2, i, 2, 1), lines_.block(0, j, 2, 1),
+                                                 lines_.block(2, j, 2, 1));
+      double d1_m2s = DistancePointToLineSegment(lines_.block(0, j, 2, 1), source_tf.GetLines().block(0, i, 2, 1),
                                                  source_tf.GetLines().block(2, i, 2, 1));
-      double d2_m2s = DistancePointToLineSegment(GetLines().block(2, j, 2, 1), source_tf.GetLines().block(0, i, 2, 1),
+      double d2_m2s = DistancePointToLineSegment(lines_.block(2, j, 2, 1), source_tf.GetLines().block(0, i, 2, 1),
                                                  source_tf.GetLines().block(2, i, 2, 1));
 
       if (d1_s2m < resolution_ && d2_s2m < resolution_) {
@@ -317,6 +317,7 @@ void Frame::RegisterPointCloud(Frame& source_tf) {
       }
       if (d1_m2s < resolution_ && d2_m2s < resolution_) {
         RemoveOneLine(j);
+        j--;
         map_n_lines--;
       }
     }
