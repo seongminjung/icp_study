@@ -241,10 +241,6 @@ void Frame::Transform(Eigen::Matrix2d R, Eigen::Vector2d t) {
 void Frame::RegisterPointCloud(Frame& source_tf) {
   // For each point in source_tf, find if there is any duplicate in this frame. If not, add the point, height, and
   // disabled to this frame.
-  int n_duplicate_p2p = 0;
-  int n_duplicate_p2l = 0;
-  int n_duplicate_l2l = 0;
-
   int map_n_points = points_.cols();
   int sum_n_points = map_n_points + source_tf.GetNPoints();
   points_.conservativeResize(2, sum_n_points);
@@ -261,7 +257,6 @@ void Frame::RegisterPointCloud(Frame& source_tf) {
                                             GetLines().block(2, j, 2, 1));
       if (d < resolution_) {
         duplicate = true;
-        n_duplicate_p2l++;
         break;
       }
     }
@@ -278,7 +273,6 @@ void Frame::RegisterPointCloud(Frame& source_tf) {
             SetOneHeight(j, source_tf.GetOneHeight(i));
           }
           duplicate = true;
-          n_duplicate_p2p++;
           break;
         }
       }
@@ -303,6 +297,8 @@ void Frame::RegisterPointCloud(Frame& source_tf) {
   // For each line in source_tf, find if there is any duplicate in this frame. If not, add the line to this frame.
   for (int i = 0; i < source_tf.GetNLines(); i++) {
     bool duplicate = false;
+    int state = 0;  // 0: no duplicate, 1: source includes map, 2: map includes source, 3: both include each other,
+    // 4: partial overlap
 
     for (int j = 0; j < map_n_lines; j++) {
       // If there is a duplicate, break the loop.
@@ -315,21 +311,36 @@ void Frame::RegisterPointCloud(Frame& source_tf) {
       double d2_m2s = DistancePointToLineSegment(lines_.block(2, j, 2, 1), source_tf.GetLines().block(0, i, 2, 1),
                                                  source_tf.GetLines().block(2, i, 2, 1));
 
-      if (d1_s2m < resolution_ && d2_s2m < resolution_) {
-        duplicate = true;
-        n_duplicate_l2l++;
+      if (d1_s2m < resolution_ && d2_s2m < resolution_ && d1_m2s < resolution_ && d2_m2s < resolution_) {
+        // Do nothing
         break;
+      } else if (d1_s2m < resolution_ && d2_s2m < resolution_) {
+        // Do nothing
+        break;
+      } else if (d1_m2s < resolution_ && d2_m2s < resolution_) {
+        // Update the line.
+        // No break here, because there is a chance that multiple lines in map_ can be included in current source_ line
+        lines_.col(j) = source_tf.GetOneLine(i);
+      } else if ((d1_s2m < resolution_ && d2_s2m >= resolution_ && d1_m2s >= resolution_ && d2_m2s < resolution_) ||
+                 (d1_s2m >= resolution_ && d2_s2m < resolution_ && d1_m2s < resolution_ && d2_m2s >= resolution_)) {
+        // No break here, because there is a chance that multiple lines in map_ can overlap current source_ line
+        // merge the lines
+        if (d1_s2m < resolution_ && d2_s2m >= resolution_ && d1_m2s >= resolution_ && d2_m2s < resolution_) {
+          lines_.col(j)(2) = source_tf.GetOneLine(i)(2);
+          lines_.col(j)(3) = source_tf.GetOneLine(i)(3);
+        } else if (d1_s2m >= resolution_ && d2_s2m < resolution_ && d1_m2s < resolution_ && d2_m2s >= resolution_) {
+          lines_.col(j)(0) = source_tf.GetOneLine(i)(0);
+          lines_.col(j)(1) = source_tf.GetOneLine(i)(1);
+        }
+        // Update the average height
+        lines_.col(j)(4) = (lines_.col(j)(4) + source_tf.GetOneLine(i)(4)) / 2;
       }
-      if (d1_m2s < resolution_ && d2_m2s < resolution_) {
-        RemoveOneLine(j);
-        j--;
-        map_n_lines--;
-      }
-    }
 
-    if (!duplicate) {
-      lines_.col(map_n_lines) = source_tf.GetOneLine(i);
-      map_n_lines++;
+      // If there is no duplicate until the end, append the line to lines_
+      if (j == map_n_lines - 1 && state == 0) {
+        lines_.col(map_n_lines) = source_tf.GetOneLine(i);
+        map_n_lines++;
+      }
     }
   }
 
