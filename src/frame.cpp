@@ -292,13 +292,13 @@ void Frame::RegisterPointCloud(Frame& source_tf) {
 
   int map_n_lines = lines_.cols();
   int sum_n_lines = map_n_lines + source_tf.GetNLines();
-  lines_.conservativeResize(5, sum_n_lines);
+  lines_.conservativeResize(5, sum_n_lines);  // Worst case
 
   // For each line in source_tf, find if there is any duplicate in this frame. If not, add the line to this frame.
   for (int i = 0; i < source_tf.GetNLines(); i++) {
-    bool duplicate = false;
-    int state = 0;  // 0: no duplicate, 1: source includes map, 2: map includes source, 3: both include each other,
-    // 4: partial overlap
+    std::vector<int> state0_lines;  // Lines that will be ignored
+    std::vector<int> state1_lines;  // Lines that will substitute map line
+    std::vector<int> state2_lines;  // Lines that will be merged with map line
 
     for (int j = 0; j < map_n_lines; j++) {
       // If there is a duplicate, break the loop.
@@ -311,36 +311,75 @@ void Frame::RegisterPointCloud(Frame& source_tf) {
       double d2_m2s = DistancePointToLineSegment(lines_.block(2, j, 2, 1), source_tf.GetLines().block(0, i, 2, 1),
                                                  source_tf.GetLines().block(2, i, 2, 1));
 
-      if (d1_s2m < resolution_ && d2_s2m < resolution_ && d1_m2s < resolution_ && d2_m2s < resolution_) {
-        // Do nothing
-        break;
-      } else if (d1_s2m < resolution_ && d2_s2m < resolution_) {
-        // Do nothing
-        break;
+      if (d1_s2m < resolution_ && d2_s2m < resolution_) {
+        state0_lines.emplace_back(j);
       } else if (d1_m2s < resolution_ && d2_m2s < resolution_) {
-        // Update the line.
-        // No break here, because there is a chance that multiple lines in map_ can be included in current source_ line
-        lines_.col(j) = source_tf.GetOneLine(i);
-      } else if ((d1_s2m < resolution_ && d2_s2m >= resolution_ && d1_m2s >= resolution_ && d2_m2s < resolution_) ||
-                 (d1_s2m >= resolution_ && d2_s2m < resolution_ && d1_m2s < resolution_ && d2_m2s >= resolution_)) {
-        // No break here, because there is a chance that multiple lines in map_ can overlap current source_ line
-        // merge the lines
-        if (d1_s2m < resolution_ && d2_s2m >= resolution_ && d1_m2s >= resolution_ && d2_m2s < resolution_) {
-          lines_.col(j)(2) = source_tf.GetOneLine(i)(2);
-          lines_.col(j)(3) = source_tf.GetOneLine(i)(3);
-        } else if (d1_s2m >= resolution_ && d2_s2m < resolution_ && d1_m2s < resolution_ && d2_m2s >= resolution_) {
-          lines_.col(j)(0) = source_tf.GetOneLine(i)(0);
-          lines_.col(j)(1) = source_tf.GetOneLine(i)(1);
-        }
-        // Update the average height
-        lines_.col(j)(4) = (lines_.col(j)(4) + source_tf.GetOneLine(i)(4)) / 2;
+        state1_lines.emplace_back(j);
+      } else if ((d1_s2m - resolution_) * (d2_s2m - resolution_) < 0 &&
+                 (d1_m2s - resolution_) * (d2_m2s - resolution_) < 0) {
+        state2_lines.emplace_back(j);
       }
+    }
 
-      // If there is no duplicate until the end, append the line to lines_
-      if (j == map_n_lines - 1 && state == 0) {
-        lines_.col(map_n_lines) = source_tf.GetOneLine(i);
-        map_n_lines++;
+    // print for debug
+    std::cout << "line " << i << " from source_tf: " << source_tf.GetLines().col(i).transpose() << std::endl;
+    std::cout << "state0_lines: ";
+    for (int j = 0; j < state0_lines.size(); j++) {
+      std::cout << state0_lines[j] << " ";
+    }
+    std::cout << std::endl;
+    std::cout << "state1_lines: ";
+    for (int j = 0; j < state1_lines.size(); j++) {
+      std::cout << state1_lines[j] << " ";
+    }
+    std::cout << std::endl;
+    std::cout << "state2_lines: ";
+    for (int j = 0; j < state2_lines.size(); j++) {
+      std::cout << state2_lines[j] << " ";
+    }
+    std::cout << std::endl;
+
+    // If all of state0_lines, state1_lines, and state2_lines are empty, append the line to lines_
+    if (state0_lines.empty() && state1_lines.empty() && state2_lines.empty()) {
+      lines_.col(map_n_lines) = source_tf.GetOneLine(i);
+      map_n_lines++;
+    } else if (state0_lines.empty() && !state1_lines.empty() && state2_lines.empty()) {
+      if (state1_lines.size() == 1) {
+        lines_.col(state1_lines[0]) = source_tf.GetOneLine(i);
+      } else {
+        // Remove all lines in state1_lines except the first one
+        for (int j = state1_lines.size() - 1; j > 0; j--) {
+          RemoveOneLine(state1_lines[j]);
+          map_n_lines--;
+        }
+        lines_.col(state1_lines[0]) = source_tf.GetOneLine(i);
       }
+    } else if (state0_lines.empty() && state1_lines.empty() && !state2_lines.empty()) {
+      for (int j = 0; j < state2_lines.size(); j++) {
+        double d1_s2m =
+            DistancePointToLineSegment(source_tf.GetLines().block(0, i, 2, 1), lines_.block(0, state2_lines[j], 2, 1),
+                                       lines_.block(2, state2_lines[j], 2, 1));
+        double d2_s2m =
+            DistancePointToLineSegment(source_tf.GetLines().block(2, i, 2, 1), lines_.block(0, state2_lines[j], 2, 1),
+                                       lines_.block(2, state2_lines[j], 2, 1));
+        // Update the line based on the distance - Change the source line instead of map line, and remove the map line
+        // per each update. This way we can deal with multiple partial overlaps.
+        if (d1_s2m < d2_s2m) {
+          // x coordinate of the source line is greater than the map line
+          source_tf.GetLines().block(0, i, 2, 1) = lines_.col(state2_lines[j]).segment(0, 2);
+          // TODO: The above line does not change the source line's x coordinate.
+
+        } else {
+          source_tf.GetLines().block(2, i, 2, 1) = lines_.col(state2_lines[j]).segment(2, 2);
+        }
+
+        // Remove the map line
+        RemoveOneLine(state2_lines[j]);
+        map_n_lines--;
+      }
+      // Append the source line to lines_
+      lines_.col(map_n_lines) = source_tf.GetOneLine(i);
+      map_n_lines++;
     }
   }
 
