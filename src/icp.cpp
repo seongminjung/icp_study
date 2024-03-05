@@ -298,8 +298,10 @@ double ICP::RunHeightICP() {
   int max_iter = 100;
   double thresh = 1e-5;
 
-  unsigned int N_Points_Map = Map_.GetNPoints();
-  unsigned int N_Lines_Map = Map_.GetNLines();
+  Frame Map_downsampled = Map_.RadiusDownsample(t_, 50.0);  // Only take points within 10m from the current position
+
+  unsigned int N_Points_Map = Map_downsampled.GetNPoints();
+  unsigned int N_Lines_Map = Map_downsampled.GetNLines();
 
   // First, transform Source_ to the original frame
   Source_.Transform(R_, t_);
@@ -336,11 +338,11 @@ double ICP::RunHeightICP() {
 
       // Point-to-point distance
       for (int j = 0; j < N_Points_Map; j++) {
-        double dist_sq = pow(Source_downsampled.GetOnePoint(i)(0) - Map_.GetOnePoint(j)(0), 2) +
-                         pow(Source_downsampled.GetOnePoint(i)(1) - Map_.GetOnePoint(j)(1), 2);
+        double dist_sq = pow(Source_downsampled.GetOnePoint(i)(0) - Map_downsampled.GetOnePoint(j)(0), 2) +
+                         pow(Source_downsampled.GetOnePoint(i)(1) - Map_downsampled.GetOnePoint(j)(1), 2);
         if (dist_sq < min_dist) {
           // Update only when height is similar
-          // if (abs(Source_downsampled.GetOneHeight(i) - Map_.GetOneHeight(j)) < 1) {
+          // if (abs(Source_downsampled.GetOneHeight(i) - Map_downsampled.GetOneHeight(j)) < 1) {
           min_dist = dist_sq;
           min_idx = j;
           // }
@@ -352,10 +354,11 @@ double ICP::RunHeightICP() {
         ////////////////////////////////////////////
         // Calculate the distance and a foot of perpendicular from a point p to a line segment defined by two points a
         // and b.
-        // a = Map_.GetLines().block(0, j, 2, 1), b = Map_.GetLines().block(2, j, 2, 1) p =
+        // a = Map_downsampled.GetLines().block(0, j, 2, 1), b = Map_downsampled.GetLines().block(2, j, 2, 1) p =
         // Source_downsampled.GetOnePoint(i)
-        Eigen::Vector2d ap = Source_downsampled.GetOnePoint(i) - Map_.GetLines().block(0, j, 2, 1);
-        Eigen::Vector2d ab = Map_.GetLines().block(2, j, 2, 1) - Map_.GetLines().block(0, j, 2, 1);
+        Eigen::Vector2d ap = Source_downsampled.GetOnePoint(i) - Map_downsampled.GetLines().block(0, j, 2, 1);
+        Eigen::Vector2d ab =
+            Map_downsampled.GetLines().block(2, j, 2, 1) - Map_downsampled.GetLines().block(0, j, 2, 1);
 
         // Calculate the dot product
         double ab2 = ab.dot(ab);
@@ -369,7 +372,7 @@ double ICP::RunHeightICP() {
         }
 
         // Find the projection point (which is a foot of perpendicular from p to the line segment)
-        Eigen::Vector2d projection = Map_.GetLines().block(0, j, 2, 1) + ab * t;
+        Eigen::Vector2d projection = Map_downsampled.GetLines().block(0, j, 2, 1) + ab * t;
 
         // Calculate the distance from p to the projection point
         double dist_sq = (Source_downsampled.GetOnePoint(i) - projection).squaredNorm();
@@ -388,10 +391,10 @@ double ICP::RunHeightICP() {
       dist_vector.emplace_back(i, min_dist);
       if (matched_to_line) {
         Y.SetOnePoint(i, foot_of_perpendicular);
-        Y.SetOneHeight(i, Map_.GetOneLine(min_idx)(4));
+        Y.SetOneHeight(i, Map_downsampled.GetOneLine(min_idx)(4));
       } else {
-        Y.SetOnePoint(i, Map_.GetOnePoint(min_idx));
-        Y.SetOneHeight(i, Map_.GetOneHeight(min_idx));
+        Y.SetOnePoint(i, Map_downsampled.GetOnePoint(min_idx));
+        Y.SetOneHeight(i, Map_downsampled.GetOneHeight(min_idx));
       }
     }
 
@@ -449,6 +452,7 @@ double ICP::RunHeightICP() {
   t_ = R * t_ + t;
 
   Map_.RegisterPointCloud(Source_);
+  VisualizeFrame(marker_pub_, Map_downsampled, 1);
   VisualizeFrame(marker_pub_, Map_, 3);
 
   std::cout << err;

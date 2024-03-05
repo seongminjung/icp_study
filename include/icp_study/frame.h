@@ -68,6 +68,7 @@ class Frame {
 
   // Downsampling
   void RandomDownsample(double ratio);
+  Frame RadiusDownsample(Eigen::Vector2d point, double radius);
 
   // Transformations
   void Transform(Eigen::Matrix2d R, Eigen::Vector2d t);

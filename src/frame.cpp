@@ -227,6 +227,58 @@ void Frame::RandomDownsample(double ratio) {
   // std::cout << "frame size after downsampling: " << points_.cols() << std::endl;
 }
 
+Frame Frame::RadiusDownsample(Eigen::Vector2d point, double radius) {
+  Frame downsampled_frame;
+  downsampled_frame.SetTimestamp(timestamp_);
+  downsampled_frame.SetResolution(resolution_);
+  downsampled_frame.SetMapWidth(map_width_);
+  downsampled_frame.SetMapHeight(map_height_);
+  downsampled_frame.SetAllPointsDisabled(true);
+
+  downsampled_frame.ReserveSize(points_.cols());
+  downsampled_frame.lines_.resize(5, lines_.cols());
+
+  int n = 0;
+
+  // // Another version of getting points within the radius
+  // Eigen::VectorXd distances = (points_.colwise() - point).colwise().norm();
+  // for (int i = 0; i < points_.cols(); i++) {
+  //   if (distances(i) < radius) {
+  //     downsampled_frame.SetOnePoint(n, GetOnePoint(i));
+  //     downsampled_frame.SetOneHeight(n, GetOneHeight(i));
+  //     downsampled_frame.SetOnePointDisabled(n, false);
+  //     n++;
+  //   }
+  // }
+
+  for (int i = 0; i < points_.cols(); i++) {
+    if ((points_.col(i) - point).norm() < radius) {
+      downsampled_frame.SetOnePoint(n, GetOnePoint(i));
+      downsampled_frame.SetOneHeight(n, GetOneHeight(i));
+      downsampled_frame.SetOnePointDisabled(n, false);
+      n++;
+    }
+  }
+
+  downsampled_frame.points_.conservativeResize(2, n);
+  downsampled_frame.heights_.conservativeResize(n);
+  downsampled_frame.disabled_.conservativeResize(n);
+
+  n = 0;
+
+  for (int i = 0; i < lines_.cols(); i++) {
+    double d = DistancePointToLineSegment(point, lines_.block(0, i, 2, 1), lines_.block(2, i, 2, 1));
+    if (d < radius) {
+      downsampled_frame.SetOneLine(n, GetOneLine(i));
+      n++;
+    }
+  }
+
+  downsampled_frame.lines_.conservativeResize(5, n);
+
+  return downsampled_frame;
+}
+
 ////////////////////////////////
 // Transformations
 void Frame::Transform(Eigen::Matrix2d R, Eigen::Vector2d t) {
@@ -322,23 +374,23 @@ void Frame::RegisterPointCloud(Frame& source_tf) {
       }
     }
 
-    // print for debug
-    std::cout << "line " << i << " from source_tf: " << source_tf.GetLines().col(i).transpose() << std::endl;
-    std::cout << "state0_lines: ";
-    for (int j = 0; j < state0_lines.size(); j++) {
-      std::cout << state0_lines[j] << " ";
-    }
-    std::cout << std::endl;
-    std::cout << "state1_lines: ";
-    for (int j = 0; j < state1_lines.size(); j++) {
-      std::cout << state1_lines[j] << " ";
-    }
-    std::cout << std::endl;
-    std::cout << "state2_lines: ";
-    for (int j = 0; j < state2_lines.size(); j++) {
-      std::cout << state2_lines[j] << " ";
-    }
-    std::cout << std::endl;
+    // // print for debug
+    // std::cout << "line " << i << " from source_tf: " << source_tf.GetLines().col(i).transpose() << std::endl;
+    // std::cout << "state0_lines: ";
+    // for (int j = 0; j < state0_lines.size(); j++) {
+    //   std::cout << state0_lines[j] << " ";
+    // }
+    // std::cout << std::endl;
+    // std::cout << "state1_lines: ";
+    // for (int j = 0; j < state1_lines.size(); j++) {
+    //   std::cout << state1_lines[j] << " ";
+    // }
+    // std::cout << std::endl;
+    // std::cout << "state2_lines: ";
+    // for (int j = 0; j < state2_lines.size(); j++) {
+    //   std::cout << state2_lines[j] << " ";
+    // }
+    // std::cout << std::endl;
 
     // If all of state0_lines, state1_lines, and state2_lines are empty, append the line to lines_
     if (state0_lines.empty() && state1_lines.empty() && state2_lines.empty()) {
