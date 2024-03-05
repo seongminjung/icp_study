@@ -68,6 +68,7 @@ void Frame::SetOnePoint(unsigned int idx, Eigen::Vector2d point) {
 }
 void Frame::SetOneHeight(unsigned int idx, double height) { heights_(idx) = height; }
 void Frame::SetLines(Eigen::MatrixXd lines) { lines_ = lines; }
+void Frame::SetOneLine(unsigned int idx, Eigen::VectorXd line) { lines_.col(idx) = line; }
 void Frame::SetAllPointsDisabled(bool disabled) { disabled_ = Eigen::VectorXi::Ones(points_.cols()) * disabled; }
 void Frame::SetOnePointDisabled(unsigned int idx, bool disabled) { disabled_(idx) = disabled; }
 void Frame::ReserveSize(unsigned int size) {
@@ -366,15 +367,104 @@ void Frame::RegisterPointCloud(Frame& source_tf) {
         // per each update. This way we can deal with multiple partial overlaps.
         if (d1_s2m < d2_s2m) {
           // x coordinate of the source line is greater than the map line
-          source_tf.GetLines().block(0, i, 2, 1) = lines_.col(state2_lines[j]).segment(0, 2);
-          // TODO: The above line does not change the source line's x coordinate.
-
+          Eigen::VectorXd tmp = source_tf.GetOneLine(i);
+          tmp.segment(0, 2) = lines_.col(state2_lines[j]).segment(0, 2);
+          // Average height
+          tmp(4) = (tmp(4) + lines_(4, state2_lines[j])) / 2;
+          source_tf.SetOneLine(i, tmp);
         } else {
-          source_tf.GetLines().block(2, i, 2, 1) = lines_.col(state2_lines[j]).segment(2, 2);
+          // x coordinate of the source line is smaller than the map line
+          Eigen::VectorXd tmp = source_tf.GetOneLine(i);
+          tmp.segment(2, 2) = lines_.col(state2_lines[j]).segment(2, 2);
+          // Average height
+          tmp(4) = (tmp(4) + lines_(4, state2_lines[j])) / 2;
+          source_tf.SetOneLine(i, tmp);
         }
-
-        // Remove the map line
+      }
+      // Remove all lines in state2_lines, since we appended the merged source line to lines_
+      for (int j = state2_lines.size() - 1; j >= 0; j--) {
         RemoveOneLine(state2_lines[j]);
+        map_n_lines--;
+      }
+      // Append the source line to lines_
+      lines_.col(map_n_lines) = source_tf.GetOneLine(i);
+      map_n_lines++;
+    } else if (!state0_lines.empty() && !state1_lines.empty() && state2_lines.empty()) {
+      // Remove all lines in state1_lines
+      for (int j = state1_lines.size() - 1; j >= 0; j--) {
+        RemoveOneLine(state1_lines[j]);
+        map_n_lines--;
+      }
+    } else if (!state0_lines.empty() && state1_lines.empty() && !state2_lines.empty()) {
+      // Here, we only use the first elements of state0_lines
+      // We merge the first state0_lines with the state2_lines
+      source_tf.SetOneLine(i, lines_.col(state0_lines[0]));
+      for (int j = 0; j < state2_lines.size(); j++) {
+        double d1_s2m =
+            DistancePointToLineSegment(source_tf.GetLines().block(0, i, 2, 1), lines_.block(0, state2_lines[j], 2, 1),
+                                       lines_.block(2, state2_lines[j], 2, 1));
+        double d2_s2m =
+            DistancePointToLineSegment(source_tf.GetLines().block(2, i, 2, 1), lines_.block(0, state2_lines[j], 2, 1),
+                                       lines_.block(2, state2_lines[j], 2, 1));
+        // Update the line based on the distance - Change the source line instead of map line, and remove the map line
+        // per each update. This way we can deal with multiple partial overlaps.
+        if (d1_s2m < d2_s2m) {
+          // x coordinate of the source line is greater than the map line
+          Eigen::VectorXd tmp = source_tf.GetOneLine(i);
+          tmp.segment(0, 2) = lines_.col(state2_lines[j]).segment(0, 2);
+          // Average height
+          tmp(4) = (tmp(4) + lines_(4, state2_lines[j])) / 2;
+          source_tf.SetOneLine(i, tmp);
+        } else {
+          // x coordinate of the source line is smaller than the map line
+          Eigen::VectorXd tmp = source_tf.GetOneLine(i);
+          tmp.segment(2, 2) = lines_.col(state2_lines[j]).segment(2, 2);
+          // Average height
+          tmp(4) = (tmp(4) + lines_(4, state2_lines[j])) / 2;
+          source_tf.SetOneLine(i, tmp);
+        }
+      }
+      // Remove all lines in state2_lines, since we appended the merged source line to lines_
+      for (int j = state2_lines.size() - 1; j >= 0; j--) {
+        RemoveOneLine(state2_lines[j]);
+        map_n_lines--;
+      }
+      // Append the source line to lines_
+      lines_.col(map_n_lines) = source_tf.GetOneLine(i);
+      map_n_lines++;
+    } else if (state0_lines.empty() && !state1_lines.empty() && !state2_lines.empty()) {
+      for (int j = 0; j < state2_lines.size(); j++) {
+        double d1_s2m =
+            DistancePointToLineSegment(source_tf.GetLines().block(0, i, 2, 1), lines_.block(0, state2_lines[j], 2, 1),
+                                       lines_.block(2, state2_lines[j], 2, 1));
+        double d2_s2m =
+            DistancePointToLineSegment(source_tf.GetLines().block(2, i, 2, 1), lines_.block(0, state2_lines[j], 2, 1),
+                                       lines_.block(2, state2_lines[j], 2, 1));
+        // Update the line based on the distance - Change the source line instead of map line, and remove the map line
+        // per each update. This way we can deal with multiple partial overlaps.
+        if (d1_s2m < d2_s2m) {
+          // x coordinate of the source line is greater than the map line
+          Eigen::VectorXd tmp = source_tf.GetOneLine(i);
+          tmp.segment(0, 2) = lines_.col(state2_lines[j]).segment(0, 2);
+          // Average height
+          tmp(4) = (tmp(4) + lines_(4, state2_lines[j])) / 2;
+          source_tf.SetOneLine(i, tmp);
+        } else {
+          // x coordinate of the source line is smaller than the map line
+          Eigen::VectorXd tmp = source_tf.GetOneLine(i);
+          tmp.segment(2, 2) = lines_.col(state2_lines[j]).segment(2, 2);
+          // Average height
+          tmp(4) = (tmp(4) + lines_(4, state2_lines[j])) / 2;
+          source_tf.SetOneLine(i, tmp);
+        }
+      }
+      // Remove all lines in state1_lines and state2_lines, since we appended the merged source line to lines_
+      std::vector<int> idx_to_remove;
+      idx_to_remove.insert(idx_to_remove.end(), state1_lines.begin(), state1_lines.end());
+      idx_to_remove.insert(idx_to_remove.end(), state2_lines.begin(), state2_lines.end());
+      std::sort(idx_to_remove.begin(), idx_to_remove.end());
+      for (int j = idx_to_remove.size() - 1; j >= 0; j--) {
+        RemoveOneLine(idx_to_remove[j]);
         map_n_lines--;
       }
       // Append the source line to lines_
