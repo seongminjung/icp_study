@@ -325,7 +325,7 @@ double ICP::RunHeightICP() {
 
   Frame Map_downsampled = Map_.RadiusDownsample(t_, 50.0);  // Only take points within 10m from the current position
 
-  unsigned int N_Points_Map = Prev_Source_.GetNPoints();
+  unsigned int N_Points_Map = Map_downsampled.GetNPoints();
   unsigned int N_Lines_Map = Map_downsampled.GetNLines();
 
   // First, transform Source_ to the original frame
@@ -363,11 +363,11 @@ double ICP::RunHeightICP() {
 
       // Point-to-point distance
       for (int j = 0; j < N_Points_Map; j++) {
-        double dist_sq = pow(Source_downsampled.GetOnePoint(i)(0) - Prev_Source_.GetOnePoint(j)(0), 2) +
-                         pow(Source_downsampled.GetOnePoint(i)(1) - Prev_Source_.GetOnePoint(j)(1), 2);
+        double dist_sq = pow(Source_downsampled.GetOnePoint(i)(0) - Map_downsampled.GetOnePoint(j)(0), 2) +
+                         pow(Source_downsampled.GetOnePoint(i)(1) - Map_downsampled.GetOnePoint(j)(1), 2);
         if (dist_sq < min_dist) {
           // Update only when height is similar
-          // if (abs(Source_downsampled.GetOneHeight(i) - Prev_Source_.GetOneHeight(j)) < 1) {
+          // if (abs(Source_downsampled.GetOneHeight(i) - Map_downsampled.GetOneHeight(j)) < 1) {
           min_dist = dist_sq;
           min_idx = j;
           // }
@@ -379,7 +379,7 @@ double ICP::RunHeightICP() {
         ////////////////////////////////////////////
         // Calculate the distance and a foot of perpendicular from a point p to a line segment defined by two points a
         // and b.
-        // a = Prev_Source_.GetLines().block(0, j, 2, 1), b = Prev_Source_.GetLines().block(2, j, 2, 1) p =
+        // a = Map_downsampled.GetLines().block(0, j, 2, 1), b = Map_downsampled.GetLines().block(2, j, 2, 1) p =
         // Source_downsampled.GetOnePoint(i)
         Eigen::Vector2d ap = Source_downsampled.GetOnePoint(i) - Map_downsampled.GetLines().block(0, j, 2, 1);
         Eigen::Vector2d ab =
@@ -418,8 +418,8 @@ double ICP::RunHeightICP() {
         Y.SetOnePoint(i, foot_of_perpendicular);
         Y.SetOneHeight(i, Map_downsampled.GetOneLine(min_idx)(4));
       } else {
-        Y.SetOnePoint(i, Prev_Source_.GetOnePoint(min_idx));
-        Y.SetOneHeight(i, Prev_Source_.GetOneHeight(min_idx));
+        Y.SetOnePoint(i, Map_downsampled.GetOnePoint(min_idx));
+        Y.SetOneHeight(i, Map_downsampled.GetOneHeight(min_idx));
       }
     }
 
@@ -476,7 +476,7 @@ double ICP::RunHeightICP() {
   R_ = R * R_;
   t_ = R * t_ + t;
 
-  // Map_.RegisterPointCloud(Source_);
+  Map_.RegisterPointCloud(Source_);
   Prev_Source_ = Frame(Source_);
   // VisualizeFrame(marker_pub_, Prev_Source_, 1);
   // VisualizeFrame(marker_pub_, Map_, 3);
