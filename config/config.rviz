@@ -86,20 +86,20 @@ Visualization Manager:
       Marker Topic: /visualization_marker/frame
       Name: MarkerArray
       Namespaces:
-        arrow: true
+        arrow_0: true
+        arrow_1: true
         line_2: true
         line_between_matching_points: true
         line_map: true
         point_2: true
         point_map: true
-        pose: true
       Queue Size: 100
       Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
     Default Light: true
-    Fixed Frame: velo_link
+    Fixed Frame: world
     Frame Rate: 30
   Name: root
   Tools:
@@ -160,4 +160,4 @@ Window Geometry:
     collapsed: true
   Width: 1184
   X: 736
-  Y: 205
+  Y: 353

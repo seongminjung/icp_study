@@ -40,7 +40,7 @@ void ICP::PointCloudCallback(const sensor_msgs::PointCloud2::ConstPtr& point_clo
     // VisualizeFrame(marker_pub_, Map_, 1);
     Map_ = Frame(point_cloud_msg);
     Map_.Transform(R_, Eigen::Vector2d::Zero());
-    // VisualizeFrame(marker_pub_, Map_, 3);
+    VisualizeFrame(marker_pub_, Map_, 3);
     Prev_Source_ = Frame(Map_);
   } else {
     Source_ = Frame(point_cloud_msg);
@@ -445,7 +445,7 @@ double ICP::RunHeightICP() {
       Source_downsampled.SetOnePointDisabled(dist_vector[i].first, true);
     }
 
-    // VisualizeLineBetweenMatchingPoints(marker_pub_, Source_downsampled, Y);
+    VisualizeLineBetweenMatchingPoints(marker_pub_, Source_downsampled, Y);
 
     Eigen::Matrix3d result;
     FindHeightAlignment(Source_downsampled, Y, result);  // left top 2x2: R, right top 2x1: t, left bottom 1x1: err
@@ -459,7 +459,7 @@ double ICP::RunHeightICP() {
 
     // Update Source_
     Source_.Transform(R_step, t_step);
-    // VisualizeFrame(marker_pub_, Source_, 2);
+    VisualizeFrame(marker_pub_, Source_, 2);
 
     // Print R, t, err
     // std::cout << "R: " << std::endl << R << std::endl;
@@ -492,7 +492,7 @@ double ICP::RunHeightICP() {
   Map_.RegisterPointCloud(Source_);
   Prev_Source_ = Frame(Source_);
   // VisualizeFrame(marker_pub_, Prev_Source_, 1);
-  // VisualizeFrame(marker_pub_, Map_, 3);
+  VisualizeFrame(marker_pub_, Map_, 3);
   return err;
 }
 
