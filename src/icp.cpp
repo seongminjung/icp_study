@@ -1,5 +1,6 @@
 #include "icp_study/icp.h"
 
+#include <pcl/filters/random_sample.h>
 #include <pcl/point_types.h>
 #include <pcl/registration/gicp.h>
 #include <pcl/registration/icp.h>
@@ -117,122 +118,134 @@ void ICP::PointCloudCallbackForPCL(const sensor_msgs::PointCloud2::ConstPtr& poi
     pcl::PointCloud<pcl::PointXYZ>::Ptr ptr_cloud1(new pcl::PointCloud<pcl::PointXYZ>);
     pcl::fromROSMsg(*point_cloud_msg, *ptr_cloud1);
     tgt = ptr_cloud1;
-  } else if (src == nullptr) {
+  } else {
     pcl::PointCloud<pcl::PointXYZ>::Ptr ptr_cloud2(new pcl::PointCloud<pcl::PointXYZ>);
     pcl::fromROSMsg(*point_cloud_msg, *ptr_cloud2);
     src = ptr_cloud2;
+
+    std::chrono::system_clock::time_point t_start = std::chrono::system_clock::now();
     // RunICPPCL();
     RunGICPPCL();
+    std::chrono::system_clock::time_point t_end = std::chrono::system_clock::now();
+    std::chrono::duration<double> t_reg = t_end - t_start;
+    std::cout << t_reg.count();
+
+    // Compute error between t_ and t_gt_
+    double error = (t_ - t_gt_).norm();
+    std::cout << " " << error << std::endl;
   }
 }
 
-// void ICP::RunICP() {
-//   /// \brief 2D HeightGrid ICP algorithm. F2 is transformed to F1.
+void ICP::RunICP() {
+  // Initialization
+  Eigen::Matrix2d R = Eigen::Matrix2d::Identity();  // rotation
+  Eigen::Vector2d t = Eigen::Vector2d::Zero();      // translation
+  double err = 0;                                   // error
+  errors_.clear();
 
-//   // Initialization
-//   Eigen::Matrix2d R = Eigen::Matrix2d::Identity();  // rotation
-//   Eigen::Vector2d t = Eigen::Vector2d::Zero();      // translation
-//   double err = 0;                                   // error
+  int max_iter = 100;
+  double thresh = 1e-5;
 
-//   int max_iter = 100;
-//   double thresh = 1e-5;
+  unsigned int N_Prev_Source = Prev_Source_.GetNPoints();
 
-//   unsigned int N_F1 = F1_.GetNPoints();
-//   unsigned int N_F2 = F2_.GetNPoints();
+  // First, transform Source_ to the original frame
+  Source_.Transform(R_, t_);
 
-//   Frame X(F2_);
+  // Start ICP loop
+  for (int iter = 0; iter < max_iter; iter++) {
+    // If ctrl+c is pressed, stop quickly
+    if (!ros::ok()) {
+      break;
+    }
 
-//   errors_.clear();
+    // std::printf("==========iter: %d==========\n", iter);
+    Frame Source_downsampled(Source_);
+    Frame Y;
 
-//   // Start ICP loop
-//   t_start_ = std::chrono::system_clock::now();
-//   for (int iter = 0; iter < max_iter; iter++) {
-//     // If ctrl+c is pressed, stop quickly
-//     if (!ros::ok()) {
-//       break;
-//     }
+    Source_downsampled.RandomDownsample(0.1);  // Randomly subsample 10% from Source_
 
-//     // std::printf("==========iter: %d==========\n", iter);
+    unsigned int N_Downsampled = Source_downsampled.GetNPoints();
 
-//     Frame X_Downsampled(X);
-//     Frame Y;
+    Y.ReserveSize(N_Downsampled);
 
-//     X_Downsampled.RandomDownsample(0.05);  // Randomly subsample 5% from X
-//     Y.ReserveSize(X_Downsampled.GetNPoints());
+    // std::printf("Source_downsampled size: %d\n", N_Downsampled);
 
-//     // std::printf("X_Downsampled size: %d\n", X_Downsampled.GetNPoints());
+    std::vector<std::pair<int, double>> dist_vector;  // <index of Source_downsampled, distance>
+    dist_vector.reserve(N_Downsampled);
 
-//     std::vector<std::pair<int, double>> dist_vector;  // <index of X_Downsampled, distance>
-//     dist_vector.reserve(X_Downsampled.GetNPoints());
+    // Find the nearest neighbor for each point in Source_downsampled
+    for (int i = 0; i < N_Downsampled; i++) {
+      double min_dist = 1e10;
+      int min_idx = 0;
+      for (int j = 0; j < N_Prev_Source; j++) {
+        double dist =
+            sqrt(pow(Source_downsampled.GetOnePoint(i)(0) - Prev_Source_.GetOnePoint(j)(0), 2) +
+                 pow(Source_downsampled.GetOnePoint(i)(1) - Prev_Source_.GetOnePoint(j)(1), 2));  // Euclidean distance
+        if (dist < min_dist) {
+          min_dist = dist;
+          min_idx = j;
+        }
+      }
+      dist_vector.emplace_back(i, min_dist);
+      Y.SetOnePoint(i, Prev_Source_.GetOnePoint(min_idx));
+    }
 
-//     unsigned int N_Downsampled = X_Downsampled.GetNPoints();
+    // sort dist_vector by distance
+    std::sort(dist_vector.begin(), dist_vector.end(),
+              [](const std::pair<int, double>& a, const std::pair<int, double>& b) { return a.second > b.second; });
 
-//     // Find the nearest neighbor for each point in X_Downsampled
-//     for (int i = 0; i < N_Downsampled; i++) {
-//       double min_dist = 1e10;
-//       int min_idx = 0;
-//       for (int j = 0; j < N_F1; j++) {
-//         double dist = sqrt(pow(X_Downsampled.GetOnePoint(i)(0) - F1_.GetOnePoint(j)(0), 2) +
-//                            pow(X_Downsampled.GetOnePoint(i)(1) - F1_.GetOnePoint(j)(1), 2));  // Euclidean distance
-//         if (dist < min_dist) {
-//           min_dist = dist;
-//           min_idx = j;
-//         }
-//       }
-//       dist_vector.emplace_back(i, min_dist);
-//       Y.SetOnePoint(i, F1_.GetOnePoint(min_idx));
-//     }
+    // Drop points with top 10% distance by making disabled_(i) = 1
+    for (int i = 0; i < N_Downsampled * 0.10; i++) {
+      Source_downsampled.SetOnePointDisabled(dist_vector[i].first, true);
+    }
 
-//     // sort dist_vector by distance
-//     std::sort(dist_vector.begin(), dist_vector.end(),
-//               [](const std::pair<int, double>& a, const std::pair<int, double>& b) { return a.second > b.second; });
+    // VisualizeLineBetweenMatchingPoints(marker_pub_, Source_downsampled, Y);
+    // VisualizeFrame(marker_pub_, X, 2);
 
-//     // Drop points with top 5% distance by making disabled_(i) = 1
-//     for (int i = 0; i < N_Downsampled * 0.05; i++) {
-//       X_Downsampled.SetOnePointDisabled(dist_vector[i].first, true);
-//     }
+    Eigen::Matrix3d result;
+    FindAlignment(Source_downsampled, Y, result);  // left top 2x2: R, right top 2x1: t, left bottom 1x1: err
+    Eigen::Matrix2d R_step = result.block<2, 2>(0, 0);
+    Eigen::Vector2d t_step = result.block<2, 1>(0, 2);
 
-//     // VisualizeLineBetweenMatchingPoints(marker_pub_, X_Downsampled, Y);
-//     // VisualizeFrame(marker_pub_, X, 2);
+    // Update R, t, err
+    R = R_step * R;
+    t = R_step * t + t_step;
+    err = result(2, 0);
 
-//     Eigen::Matrix3d result;
-//     FindAlignment(X_Downsampled, Y, result);  // left top 2x2: R, right top 2x1: t, left bottom 1x1: err
-//     Eigen::Matrix2d R_step = result.block<2, 2>(0, 0);
-//     Eigen::Vector2d t_step = result.block<2, 1>(0, 2);
+    // Update Source_
+    Source_.Transform(R_step, t_step);
+    // VisualizeFrame(marker_pub_, Source_, 2);
 
-//     // Update R, t, err
-//     R = R_step * R;
-//     t = R_step * t + t_step;
-//     err = result(2, 0);
+    // Print R, t, err
+    // std::cout << "R: " << std::endl << R << std::endl;
+    // std::cout << "t: " << std::endl << t << std::endl;
+    // std::cout << "err: " << err << std::endl;
 
-//     // Update X
-//     X.SetPoints(R * F2_.GetPoints() + t * Eigen::MatrixXd::Ones(1, N_F2));
-//     VisualizeFrame(marker_pub_, X, 2);
+    // Check convergence
+    errors_.push_back(err);
+    if (errors_.size() > 10) {
+      errors_.erase(errors_.begin());
+    }
+    double error_mean = std::accumulate(errors_.begin(), errors_.end(), 0.0) / errors_.size();
+    double error_sq_sum = std::inner_product(errors_.begin(), errors_.end(), errors_.begin(), 0.0);
+    double error_stdev = std::sqrt(error_sq_sum / errors_.size() - error_mean * error_mean);
+    // std::printf("error_stdev: %f\n", error_stdev);
+    if (errors_.size() == 10 && error_stdev < error_stdev_threshold_) {
+      // std::printf("Converged!\n");
+      break;
+    }
+  }
+  VisualizeArrow(marker_pub_, t_, R * t_ + t, 0);
 
-//     // Print R, t, err
-//     // std::cout << "R: " << std::endl << R << std::endl;
-//     // std::cout << "t: " << std::endl << t << std::endl;
-//     // std::cout << "err: " << err << std::endl;
+  // Accumulate R_ and t_
+  R_ = R * R_;
+  t_ = R * t_ + t;
 
-//     // Check convergence
-//     errors_.push_back(err);
-//     if (errors_.size() > 10) {
-//       errors_.erase(errors_.begin());
-//     }
-//     double error_mean = std::accumulate(errors_.begin(), errors_.end(), 0.0) / errors_.size();
-//     double error_sq_sum = std::inner_product(errors_.begin(), errors_.end(), errors_.begin(), 0.0);
-//     double error_stdev = std::sqrt(error_sq_sum / errors_.size() - error_mean * error_mean);
-//     // std::printf("error_stdev: %f\n", error_stdev);
-//     if (errors_.size() == 10 && error_stdev < error_stdev_threshold_) {
-//       // std::printf("Converged!\n");
-//       break;
-//     }
-//   }
-
-//   t_end_ = std::chrono::system_clock::now();
-//   std::chrono::duration<double> t_reg = t_end_ - t_start_;
-//   std::cout << "Takes " << t_reg.count() << " sec..." << std::endl;
-// }
+  // Map_.RegisterPointCloud(Source_);
+  Prev_Source_ = Frame(Source_);
+  // VisualizeFrame(marker_pub_, Prev_Source_, 1);
+  // VisualizeFrame(marker_pub_, Map_, 3);
+}
 
 void ICP::FindAlignment(Frame& X_frame, Frame& Y_frame, Eigen::Matrix3d& result) {
   /// \brief Find the alignment between X and Y
@@ -554,110 +567,98 @@ void ICP::FindHeightAlignment(Frame& X_frame, Frame& Y_frame, Eigen::Matrix3d& r
 
 void ICP::RunICPPCL() {
   /// \brief Run PCL ICP algorithm. src is transformed to tgt.
+
+  // Initialization
+  Eigen::Matrix2d R = Eigen::Matrix2d::Identity();  // rotation
+  Eigen::Vector2d t = Eigen::Vector2d::Zero();      // translation
+
+  // Subsampling src by 10%
+  pcl::PointCloud<pcl::PointXYZ>::Ptr src_subsampled(new pcl::PointCloud<pcl::PointXYZ>);
+  pcl::RandomSample<pcl::PointXYZ> sampler;
+  sampler.setInputCloud(src);
+  sampler.setSample(0.1 * src->size());
+  sampler.filter(*src_subsampled);
+
   pcl::IterativeClosestPoint<pcl::PointXYZ, pcl::PointXYZ> icp;
   icp.setMaxCorrespondenceDistance(1.0);
-  icp.setTransformationEpsilon(0.001);
-  icp.setMaximumIterations(1000);
+  icp.setTransformationEpsilon(1e-5);
+  icp.setMaximumIterations(100);
 
-  pcl::PointCloud<pcl::PointXYZ>::Ptr align(new pcl::PointCloud<pcl::PointXYZ>);
+  // Build transform matrix using R_ and t_
+  Eigen::Matrix4f transform = Eigen::Matrix4f::Identity();
+  transform.block<2, 2>(0, 0) = R_.cast<float>();
+  transform.block<2, 1>(0, 3) = t_.cast<float>();
 
-  // 걸리는 시간 측정
-  t_start_ = std::chrono::system_clock::now();
+  // Transform src using R_ and t_
+  pcl::PointCloud<pcl::PointXYZ>::Ptr src_transformed(new pcl::PointCloud<pcl::PointXYZ>);
+  pcl::transformPointCloud(*src_subsampled, *src_transformed, transform);
 
   // Registration 시행
-  icp.setInputSource(src);
+  pcl::PointCloud<pcl::PointXYZ>::Ptr align(new pcl::PointCloud<pcl::PointXYZ>);
+  icp.setInputSource(src_transformed);
   icp.setInputTarget(tgt);
   icp.align(*align);
 
-  t_end_ = std::chrono::system_clock::now();
-  /*******************************************/
-  std::chrono::duration<double> t_reg = t_end_ - t_start_;
-  std::cout << "Takes " << t_reg.count() << " sec..." << std::endl;
-
   // Set outputs
   Eigen::Matrix4f src2tgt = icp.getFinalTransformation();
-  double score = icp.getFitnessScore();
-  bool is_converged = icp.hasConverged();
 
-  std::cout << "Transformation: " << src2tgt << std::endl;
-  std::cout << "Error: " << score << std::endl;
-  std::cout << "Converged: " << is_converged << std::endl;
+  R = src2tgt.block<2, 2>(0, 0).cast<double>();
+  t = src2tgt.block<2, 1>(0, 3).cast<double>();
 
-  pcl::PointCloud<pcl::PointXYZRGB>::Ptr src_colored(new pcl::PointCloud<pcl::PointXYZRGB>);
-  pcl::PointCloud<pcl::PointXYZRGB>::Ptr tgt_colored(new pcl::PointCloud<pcl::PointXYZRGB>);
-  pcl::PointCloud<pcl::PointXYZRGB>::Ptr align_colored(new pcl::PointCloud<pcl::PointXYZRGB>);
-  colorize(*src, *src_colored, {255, 0, 0});
-  colorize(*tgt, *tgt_colored, {0, 255, 0});
-  colorize(*align, *align_colored, {0, 0, 255});
+  VisualizeArrow(marker_pub_, t_, R * t_ + t, 0);
 
-  /**
-   * 결과 visualization 하기
-   */
-  pcl::visualization::CloudViewer viewer("Cloud Viewer");
-  viewer.showCloud(src_colored, "src_viz");
-  viewer.showCloud(tgt_colored, "tgt_viz");
-  viewer.showCloud(align_colored, "align_viz");
+  // Accumulate R_ and t_
+  R_ = R * R_;
+  t_ = R * t_ + t;
 
-  int cnt = 0;
-  while (!viewer.wasStopped()) {
-    // you can also do cool processing here
-    // FIXME: Note that this is running in a separate thread from viewerPsycho
-    // and you should guard against race conditions yourself...
-    cnt++;
-  }
+  tgt = align;
 }
 
 void ICP::RunGICPPCL() {
   /// \brief Run PCL GICP algorithm. src is transformed to tgt.
-  pcl::GeneralizedIterativeClosestPoint<pcl::PointXYZ, pcl::PointXYZ> gicp;
+
+  // Initialization
+  Eigen::Matrix2d R = Eigen::Matrix2d::Identity();  // rotation
+  Eigen::Vector2d t = Eigen::Vector2d::Zero();      // translation
+
+  // Subsampling src by 10%
+  pcl::PointCloud<pcl::PointXYZ>::Ptr src_subsampled(new pcl::PointCloud<pcl::PointXYZ>);
+  pcl::RandomSample<pcl::PointXYZ> sampler;
+  sampler.setInputCloud(src);
+  sampler.setSample(0.1 * src->size());
+  sampler.filter(*src_subsampled);
+
+  pcl::IterativeClosestPoint<pcl::PointXYZ, pcl::PointXYZ> gicp;
   gicp.setMaxCorrespondenceDistance(1.0);
-  gicp.setTransformationEpsilon(0.001);
-  gicp.setMaximumIterations(1000);
+  gicp.setTransformationEpsilon(1e-5);
+  gicp.setMaximumIterations(100);
 
-  pcl::PointCloud<pcl::PointXYZ>::Ptr align(new pcl::PointCloud<pcl::PointXYZ>);
+  // Build transform matrix using R_ and t_
+  Eigen::Matrix4f transform = Eigen::Matrix4f::Identity();
+  transform.block<2, 2>(0, 0) = R_.cast<float>();
+  transform.block<2, 1>(0, 3) = t_.cast<float>();
 
-  // 걸리는 시간 측정
-  t_start_ = std::chrono::system_clock::now();
+  // Transform src using R_ and t_
+  pcl::PointCloud<pcl::PointXYZ>::Ptr src_transformed(new pcl::PointCloud<pcl::PointXYZ>);
+  pcl::transformPointCloud(*src_subsampled, *src_transformed, transform);
 
   // Registration 시행
-  gicp.setInputSource(src);
+  pcl::PointCloud<pcl::PointXYZ>::Ptr align(new pcl::PointCloud<pcl::PointXYZ>);
+  gicp.setInputSource(src_transformed);
   gicp.setInputTarget(tgt);
   gicp.align(*align);
 
-  t_end_ = std::chrono::system_clock::now();
-  /*******************************************/
-  std::chrono::duration<double> t_reg = t_end_ - t_start_;
-  std::cout << "ICP Takes " << t_reg.count() << " sec..." << std::endl;
-
   // Set outputs
   Eigen::Matrix4f src2tgt = gicp.getFinalTransformation();
-  double score = gicp.getFitnessScore();
-  bool is_converged = gicp.hasConverged();
 
-  std::cout << "Transformation: " << src2tgt << std::endl;
-  std::cout << "Error: " << score << std::endl;
-  std::cout << "Converged: " << is_converged << std::endl;
+  R = src2tgt.block<2, 2>(0, 0).cast<double>();
+  t = src2tgt.block<2, 1>(0, 3).cast<double>();
 
-  pcl::PointCloud<pcl::PointXYZRGB>::Ptr src_colored(new pcl::PointCloud<pcl::PointXYZRGB>);
-  pcl::PointCloud<pcl::PointXYZRGB>::Ptr tgt_colored(new pcl::PointCloud<pcl::PointXYZRGB>);
-  pcl::PointCloud<pcl::PointXYZRGB>::Ptr align_colored(new pcl::PointCloud<pcl::PointXYZRGB>);
-  colorize(*src, *src_colored, {255, 0, 0});
-  colorize(*tgt, *tgt_colored, {0, 255, 0});
-  colorize(*align, *align_colored, {0, 0, 255});
+  VisualizeArrow(marker_pub_, t_, R * t_ + t, 0);
 
-  /**
-   * 결과 visualization 하기
-   */
-  pcl::visualization::CloudViewer viewer("Cloud Viewer");
-  viewer.showCloud(src_colored, "src_viz");
-  viewer.showCloud(tgt_colored, "tgt_viz");
-  viewer.showCloud(align_colored, "align_viz");
+  // Accumulate R_ and t_
+  R_ = R * R_;
+  t_ = R * t_ + t;
 
-  int cnt = 0;
-  while (!viewer.wasStopped()) {
-    // you can also do cool processing here
-    // FIXME: Note that this is running in a separate thread from viewerPsycho
-    // and you should guard against race conditions yourself...
-    cnt++;
-  }
+  tgt = align;
 }

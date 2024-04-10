@@ -23,6 +23,8 @@ class ICP {
   Frame Source_, Map_;
   Frame Prev_Source_;
 
+  int cnt = 0;
+
   // Accumulated transformation
   Eigen::Matrix2d R_;
   Eigen::Vector2d t_;
