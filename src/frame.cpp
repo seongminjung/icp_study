@@ -6,7 +6,7 @@
 
 Frame::Frame() {}
 
-Frame::Frame(const sensor_msgs::PointCloud2::ConstPtr& point_cloud_msg, int mode) {
+Frame::Frame(const sensor_msgs::PointCloud2::ConstPtr& point_cloud_msg) {
   pcl::PointCloud<pcl::PointXYZ>::Ptr ptr_cloud(new pcl::PointCloud<pcl::PointXYZ>);
   pcl::fromROSMsg(*point_cloud_msg, *ptr_cloud);
 
@@ -24,7 +24,7 @@ Frame::Frame(const sensor_msgs::PointCloud2::ConstPtr& point_cloud_msg, int mode
   Voxelize(*ptr_cloud);
 
   // line extraction
-  ExtractLine(mode);
+  ExtractLine();
 }
 
 Frame::Frame(const Frame& other) {
@@ -112,7 +112,7 @@ void Frame::Voxelize(pcl::PointCloud<pcl::PointXYZ>& input) {
   }
 }
 
-void Frame::ExtractLine(int mode) {
+void Frame::ExtractLine() {
   int n_voxel = voxel_hash_.size();
 
   Eigen::VectorXd heights_tmp;  // 1 x N  // These are the output of the z-directional line extraction
@@ -292,8 +292,7 @@ void Frame::Transform(Eigen::Matrix2d R, Eigen::Vector2d t) {
 ////////////////////////////////
 // Registering
 void Frame::RegisterPointCloud(Frame& source_tf) {
-  // For each point in source_tf, find if there is any duplicate in this frame. If not, add the point, height, and
-  // disabled to this frame.
+  // Append points and lines from source_tf to this frame
   int map_n_points = points_.cols();
   int sum_n_points = map_n_points + source_tf.GetNPoints();
   points_.conservativeResize(2, sum_n_points);

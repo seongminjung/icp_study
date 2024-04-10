@@ -76,7 +76,7 @@ void VisualizeFrame(ros::Publisher marker_pub, Frame& frame, int color) {
 
     marker = visualization_msgs::Marker();
     // Set the frame ID and timestamp.
-    marker.header.frame_id = "velo_link";
+    marker.header.frame_id = "world";
     marker.header.stamp = frame.GetTimestamp();
     // Set the namespace and id for this marker. This serves to create a unique ID Any marker sent with the same
     // namespace and id will overwrite the old one
@@ -151,7 +151,7 @@ void VisualizeFrame(ros::Publisher marker_pub, Frame& frame, int color) {
 
     marker = visualization_msgs::Marker();
     // Set the frame ID and timestamp.
-    marker.header.frame_id = "velo_link";
+    marker.header.frame_id = "world";
     marker.header.stamp = frame.GetTimestamp();
     // Set the namespace and id for this marker. This serves to create a unique ID Any marker sent with the same
     // namespace and id will overwrite the old one
@@ -234,7 +234,7 @@ void VisualizeLineBetweenMatchingPoints(ros::Publisher marker_pub, Frame F1, Fra
 
     marker = visualization_msgs::Marker();
     // Set the frame ID and timestamp.
-    marker.header.frame_id = "velo_link";
+    marker.header.frame_id = "world";
     marker.header.stamp = F1.GetTimestamp();
     // Set the namespace and id for this marker. This serves to create a unique ID Any marker sent with the same
     // namespace and id will overwrite the old one
@@ -293,7 +293,7 @@ void VisualizeCentroid(ros::Publisher marker_pub, Eigen::Vector2d centroid, ros:
 
   marker = visualization_msgs::Marker();
   // Set the frame ID and timestamp.
-  marker.header.frame_id = "velo_link";
+  marker.header.frame_id = "world";
   marker.header.stamp = timestamp;
   // Set the namespace and id for this marker. This serves to create a unique ID Any marker sent with the same
   // namespace and id will overwrite the old one
@@ -352,7 +352,7 @@ void VisualizePose(ros::Publisher marker_pub, Eigen::Matrix2d R, Eigen::Vector2d
 
   marker = visualization_msgs::Marker();
   // Set the frame ID and timestamp.
-  marker.header.frame_id = "velo_link";
+  marker.header.frame_id = "world";
   marker.header.stamp = timestamp;
   // Set the namespace and id for this marker. This serves to create a unique ID Any marker sent with the same
   // namespace and id will overwrite the old one
@@ -396,17 +396,21 @@ void VisualizePose(ros::Publisher marker_pub, Eigen::Matrix2d R, Eigen::Vector2d
   marker_pub.publish(marker_array);
 }
 
-void VisualizeArrow(ros::Publisher marker_pub, Eigen::Vector2d t_cur, Eigen::Vector2d t_prev) {
+void VisualizeArrow(ros::Publisher marker_pub, Eigen::Vector2d t_cur, Eigen::Vector2d t_prev, int id) {
   visualization_msgs::MarkerArray marker_array;
   visualization_msgs::Marker marker;
 
   marker = visualization_msgs::Marker();
   // Set the frame ID and timestamp.
-  marker.header.frame_id = "velo_link";
+  marker.header.frame_id = "world";
   marker.header.stamp = ros::Time::now();
   // Set the namespace and id for this marker. This serves to create a unique ID Any marker sent with the same
   // namespace and id will overwrite the old one
-  marker.ns = "arrow";
+  if (id == 0) {
+    marker.ns = "arrow_0";
+  } else if (id == 1) {
+    marker.ns = "arrow_1";
+  }
 
   marker.id = ros::Time::now().nsec;
   // Set the marker type. Initially this is CUBE, and cycles between that and SPHERE, ARROW, and CYLINDER
@@ -433,14 +437,20 @@ void VisualizeArrow(ros::Publisher marker_pub, Eigen::Vector2d t_cur, Eigen::Vec
 
   // Set the scale of the marker -- 1x1x1 here means 1m on a side
   marker.scale.x = diff.norm();
-  marker.scale.y = 0.2;
-  marker.scale.z = 0.2;
+  marker.scale.y = 1;
+  marker.scale.z = 1;
 
-  marker.color.r = 1;
-  marker.color.g = 0;
-  marker.color.b = 0;
+  if (id == 0) {
+    marker.color.r = 1;
+    marker.color.g = 0;
+    marker.color.b = 0;
+  } else if (id == 1) {
+    marker.color.r = 0;
+    marker.color.g = 1;
+    marker.color.b = 0;
+  }
 
-  marker.color.a = 0.5;
+  marker.color.a = 1;
 
   marker.lifetime = ros::Duration();
 

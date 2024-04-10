@@ -28,7 +28,7 @@ class Frame {
 
  public:
   Frame();
-  Frame(const sensor_msgs::PointCloud2::ConstPtr& point_cloud_msg, int mode);
+  Frame(const sensor_msgs::PointCloud2::ConstPtr& point_cloud_msg);
   Frame(const Frame& other);  // copy constructor
 
   // Getters
@@ -64,7 +64,7 @@ class Frame {
 
   // Converters
   void Voxelize(pcl::PointCloud<pcl::PointXYZ>& input);
-  void ExtractLine(int mode);
+  void ExtractLine();
 
   // Downsampling
   void RandomDownsample(double ratio);

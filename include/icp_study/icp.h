@@ -5,6 +5,8 @@
 #include <pcl_conversions/pcl_conversions.h>
 #include <ros/ros.h>
 #include <sensor_msgs/PointCloud2.h>
+#include <tf/transform_broadcaster.h>
+#include <tf2_msgs/TFMessage.h>
 
 #include <chrono>
 #include <vector>
@@ -17,11 +19,15 @@ class ICP {
   ros::NodeHandle nh_;
   ros::Publisher marker_pub_;
   ros::Subscriber point_cloud_sub_;
+  ros::Subscriber tf_sub_;
   Frame Source_, Map_;
+  Frame Prev_Source_;
 
   // Accumulated transformation
   Eigen::Matrix2d R_;
   Eigen::Vector2d t_;
+  Eigen::Vector2d t_gt_ = Eigen::Vector2d::Zero();
+  Eigen::Vector2d t_gt_prev_ = Eigen::Vector2d::Zero();
 
   // PCL ICP algorithm
   pcl::PointCloud<pcl::PointXYZ>::Ptr src;
@@ -43,6 +49,7 @@ class ICP {
   void PointCloudCallback(const sensor_msgs::PointCloud2::ConstPtr& point_cloud_msg);
   void PointCloudCallbackForEvaluation(const sensor_msgs::PointCloud2::ConstPtr& point_cloud_msg);
   void PointCloudCallbackForPCL(const sensor_msgs::PointCloud2::ConstPtr& point_cloud_msg);
+  void TFCallback(const tf2_msgs::TFMessage::ConstPtr& tf_msg);
 
   // My ICP algorithm
   void RunICP();
