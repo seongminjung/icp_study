@@ -323,10 +323,10 @@ double ICP::RunHeightICP() {
   int max_iter = 100;
   double thresh = 1e-5;
 
-  // Frame Map_downsampled = Map_.RadiusDownsample(t_, 50.0);  // Only take points within 10m from the current position
+  Frame Map_downsampled = Map_.RadiusDownsample(t_, 50.0);  // Only take points within 10m from the current position
 
   unsigned int N_Points_Map = Prev_Source_.GetNPoints();
-  unsigned int N_Lines_Map = Prev_Source_.GetNLines();
+  unsigned int N_Lines_Map = Map_downsampled.GetNLines();
 
   // First, transform Source_ to the original frame
   Source_.Transform(R_, t_);
@@ -381,8 +381,9 @@ double ICP::RunHeightICP() {
         // and b.
         // a = Prev_Source_.GetLines().block(0, j, 2, 1), b = Prev_Source_.GetLines().block(2, j, 2, 1) p =
         // Source_downsampled.GetOnePoint(i)
-        Eigen::Vector2d ap = Source_downsampled.GetOnePoint(i) - Prev_Source_.GetLines().block(0, j, 2, 1);
-        Eigen::Vector2d ab = Prev_Source_.GetLines().block(2, j, 2, 1) - Prev_Source_.GetLines().block(0, j, 2, 1);
+        Eigen::Vector2d ap = Source_downsampled.GetOnePoint(i) - Map_downsampled.GetLines().block(0, j, 2, 1);
+        Eigen::Vector2d ab =
+            Map_downsampled.GetLines().block(2, j, 2, 1) - Map_downsampled.GetLines().block(0, j, 2, 1);
 
         // Calculate the dot product
         double ab2 = ab.dot(ab);
@@ -396,7 +397,7 @@ double ICP::RunHeightICP() {
         }
 
         // Find the projection point (which is a foot of perpendicular from p to the line segment)
-        Eigen::Vector2d projection = Prev_Source_.GetLines().block(0, j, 2, 1) + ab * t;
+        Eigen::Vector2d projection = Map_downsampled.GetLines().block(0, j, 2, 1) + ab * t;
 
         // Calculate the distance from p to the projection point
         double dist_sq = (Source_downsampled.GetOnePoint(i) - projection).squaredNorm();
@@ -415,7 +416,7 @@ double ICP::RunHeightICP() {
       dist_vector.emplace_back(i, min_dist);
       if (matched_to_line) {
         Y.SetOnePoint(i, foot_of_perpendicular);
-        Y.SetOneHeight(i, Prev_Source_.GetOneLine(min_idx)(4));
+        Y.SetOneHeight(i, Map_downsampled.GetOneLine(min_idx)(4));
       } else {
         Y.SetOnePoint(i, Prev_Source_.GetOnePoint(min_idx));
         Y.SetOneHeight(i, Prev_Source_.GetOneHeight(min_idx));
