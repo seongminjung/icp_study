@@ -16,8 +16,9 @@
       4. 병합
 3. 실험
    1. 실험 환경
-      1. 데이터셋
-      2. 베이스라인
+      1. 하드웨어
+      2. 데이터셋
+      3. 베이스라인
    2. 평가 지표
    3. 결과
    4. 절제 연구 (Ablation Study)
@@ -166,17 +167,21 @@ $$
 
 ### 3.1. 실험 환경
 
-#### 3.1.1. 데이터셋
+#### 3.1.1. 하드웨어
+
+본 연구에서는 8GB RAM이 장착된 Intel Core i7 CPU를 사용하였다.
+
+#### 3.1.2. 데이터셋
 
 본 연구는 KITTI 데이터셋을 이용하여 실험을 진행하였다. KITTI 데이터셋은 도심 환경에서 촬영된 라이다 데이터로, 자율주행차나 지상 로봇의 pose estimation 등에 널리 사용되는 데이터셋이다. 본 연구에서는 KITTI 데이터셋의 09번 시퀀스를 사용하였다.
 
-#### 3.1.2. 베이스라인
+#### 3.1.3. 베이스라인
 
 본 연구에서는 ICP 알고리즘 [1]과 G-ICP 알고리즘 [2]을 베이스라인으로 삼았다. 둘 모두 PCL 라이브러리에 이미 구현된 함수를 이용하였고, 복셀화나 수직선 추출 없이 point cloud 자체를 이용했다. 공정한 비교를 위하여 본 연구에서 제안한 알고리즘과 동일한 10%의 비율로 random downsampling을 적용하였다.
 
 ### 3.2. 평가 지표
 
-본 연구의 baseline은 기존의 3D ICP 알고리즘으로 정했다. 평가 지표로는 한 프레임당 처리 속도와, 추정된 pose와 ground truth pose 사이의 Euclidean 거리를 사용하였다. 두 pose 간의 거리는 아래의 수식으로 계산하였다.
+본 연구의 baseline은 기존의 3D ICP 알고리즘으로 정했다. 평가 지표로는 프레임당 평균 처리 속도와, 추정된 pose와 ground truth pose 사이의 Euclidean 거리를 사용하였다. 두 pose 간의 거리는 아래의 수식으로 계산하였다.
 
 $$
 E_{pose} = \Vert \mathbf{t_{est}} - \mathbf{t_{gt}} \Vert
@@ -184,11 +189,11 @@ $$
 
 ### 3.3. 결과
 
-|  Method   |         제안 방법         |          ICP          |         G-ICP          |
-| :-------: | :-----------------------: | :-------------------: | :--------------------: |
-|   Path    | ![](./result_linemap.png) | ![](./result_icp.png) | ![](./result_gicp.png) |
-| Avg. Time |           0.526           |         1.338         |         1.212          |
-|   Error   |           1.496           |        39.431         |         38.455         |
+|   Method   |         제안 방법         |          ICP          |         G-ICP          |
+| :--------: | :-----------------------: | :-------------------: | :--------------------: |
+|    Path    | ![](./result_linemap.png) | ![](./result_icp.png) | ![](./result_gicp.png) |
+| Avg. Time  |           0.526           |         1.338         |         1.212          |
+| Avg. Error |           1.496           |        39.431         |         38.455         |
 
 본 연구에서 제안한 알고리즘을 3D ICP 및 3D G-ICP 알고리즘과 비교하였다. 본 연구에서 제안한 알고리즘은 속도 측면에서는 ICP와 G-ICP보다 2배 이상 높았다. 정확도 측면에서는, 초반 각도 틀어짐으로 인한 오차를 감안하더라도 ICP와 G-ICP 모두에서 rotation과 translation 오차가 유의미하게 발생했다. 이는 수직선과 평면을 이용하여 중요한 물체를 집중적으로 매칭하는 것이 단순하게 모든 점들을 이용하는 매칭보다 효율적이고 정확하다는 것을 보여준다.
 
@@ -202,11 +207,11 @@ $$
 
 본 연구에 적용한 변형 ICP 알고리즘의 각 요소가 pose 추정에 미치는 영향을 살펴보기 위해 절제 연구를 진행하였다.
 
-|  Method   |         제안 방법         |          Without Line-Plane Matching          |    Without Plane Merging    |       Without Plane Extraction        |
-| :-------: | :-----------------------: | :-------------------------------------------: | :-------------------------: | :-----------------------------------: |
-|   Path    | ![](./result_linemap.png) | ![](./result_without_line_plane_matching.png) | ![](./result_onlyframe.png) | ![](./result_only_vertical_lines.png) |
-| Avg. Time |           0.526           |                     0.483                     |            0.635            |                 0.828                 |
-|   Error   |           1.496           |                    11.807                     |            8.614            |                27.127                 |
+|   Method   |         제안 방법         |        1. Without Line-Plane Matching         |  2. Without Plane Merging   |      3. Without Plane Extraction      |
+| :--------: | :-----------------------: | :-------------------------------------------: | :-------------------------: | :-----------------------------------: |
+|    Path    | ![](./result_linemap.png) | ![](./result_without_line_plane_matching.png) | ![](./result_onlyframe.png) | ![](./result_only_vertical_lines.png) |
+| Avg. Time  |           0.526           |                     0.483                     |            0.635            |                 0.828                 |
+| Avg. Error |           1.496           |                    11.807                     |            8.614            |                27.127                 |
 
 1. 수직선-평면 매칭을 하지 않은 경우
 
