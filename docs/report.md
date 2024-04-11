@@ -9,7 +9,7 @@
    1. 데이터 전처리
       1. 복셀화 및 해시 함수
       2. 수직선 및 평면 추출
-   2. ICP 알고리즘
+   2. 제안 방법
       1. 다운샘플링
       2. Closest Point 찾기
       3. 변환 행렬 계산
@@ -80,7 +80,7 @@ KITTI 데이터셋 9번 시퀀스의 첫 프레임에서 수직선과 평면을 
 | :-------------: | :--------------: |
 | ![](./img3.png) | ![](./img4.png)  |
 
-### 2.2. 알고리즘
+### 2.2. 제안 방법
 
 3차원 공간을 다루지만 2차원 ICP 알고리즘을 변형한 방식을 사용한다. 수직선과 평면을 각각 2차원에서의 점과 선으로 간주하고, 높이는 가중치로 취하여 매칭을 진행한다. 앞으로의 설명에서 편의를 위해 수직선-수직선 매칭은 점대점, 수직선-평면 매칭은 점대선 매칭으로 칭하도록 하겠다. 평면을 구성하는 수직선들 각각에 대해 매칭 여부를 계산하는 것이 아니라 평면이라는 하나의 객체에 대해 판단하기 때문에 정확도와 효율성을 동시에 확보할 수 있다.
 
@@ -184,7 +184,7 @@ $$
 
 ### 3.3. 결과
 
-|  Method   |      Proposed Method      |          ICP          |         G-ICP          |
+|  Method   |         제안 방법         |          ICP          |         G-ICP          |
 | :-------: | :-----------------------: | :-------------------: | :--------------------: |
 |   Path    | ![](./result_linemap.png) | ![](./result_icp.png) | ![](./result_gicp.png) |
 | Avg. Time |           0.526           |         1.338         |         1.212          |
@@ -202,7 +202,7 @@ $$
 
 본 연구에 적용한 변형 ICP 알고리즘의 각 요소가 pose 추정에 미치는 영향을 살펴보기 위해 절제 연구를 진행하였다.
 
-|  Method   |      Proposed Method      |          Without Line-Plane Matching          |    Without Plane Merging    |       Without Plane Extraction        |
+|  Method   |         제안 방법         |          Without Line-Plane Matching          |    Without Plane Merging    |       Without Plane Extraction        |
 | :-------: | :-----------------------: | :-------------------------------------------: | :-------------------------: | :-----------------------------------: |
 |   Path    | ![](./result_linemap.png) | ![](./result_without_line_plane_matching.png) | ![](./result_onlyframe.png) | ![](./result_only_vertical_lines.png) |
 | Avg. Time |           0.526           |                     0.483                     |            0.635            |                 0.828                 |
