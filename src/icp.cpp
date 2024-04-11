@@ -338,7 +338,7 @@ double ICP::RunHeightICP() {
 
   Frame Map_downsampled = Map_.RadiusDownsample(t_, 50.0);  // Only take points within 10m from the current position
 
-  unsigned int N_Points_Map = Map_downsampled.GetNPoints();
+  unsigned int N_Points_Map = Prev_Source_.GetNPoints();
   unsigned int N_Lines_Map = Map_downsampled.GetNLines();
 
   // First, transform Source_ to the original frame
@@ -376,11 +376,11 @@ double ICP::RunHeightICP() {
 
       // Point-to-point distance
       for (int j = 0; j < N_Points_Map; j++) {
-        double dist_sq = pow(Source_downsampled.GetOnePoint(i)(0) - Map_downsampled.GetOnePoint(j)(0), 2) +
-                         pow(Source_downsampled.GetOnePoint(i)(1) - Map_downsampled.GetOnePoint(j)(1), 2);
+        double dist_sq = pow(Source_downsampled.GetOnePoint(i)(0) - Prev_Source_.GetOnePoint(j)(0), 2) +
+                         pow(Source_downsampled.GetOnePoint(i)(1) - Prev_Source_.GetOnePoint(j)(1), 2);
         if (dist_sq < min_dist) {
           // Update only when height is similar
-          // if (abs(Source_downsampled.GetOneHeight(i) - Map_downsampled.GetOneHeight(j)) < 1) {
+          // if (abs(Source_downsampled.GetOneHeight(i) - Prev_Source_.GetOneHeight(j)) < 1) {
           min_dist = dist_sq;
           min_idx = j;
           // }
@@ -431,8 +431,8 @@ double ICP::RunHeightICP() {
         Y.SetOnePoint(i, foot_of_perpendicular);
         Y.SetOneHeight(i, Map_downsampled.GetOneLine(min_idx)(4));
       } else {
-        Y.SetOnePoint(i, Map_downsampled.GetOnePoint(min_idx));
-        Y.SetOneHeight(i, Map_downsampled.GetOneHeight(min_idx));
+        Y.SetOnePoint(i, Prev_Source_.GetOnePoint(min_idx));
+        Y.SetOneHeight(i, Prev_Source_.GetOneHeight(min_idx));
       }
     }
 

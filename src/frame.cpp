@@ -292,55 +292,55 @@ void Frame::Transform(Eigen::Matrix2d R, Eigen::Vector2d t) {
 ////////////////////////////////
 // Registering
 void Frame::RegisterPointCloud(Frame& source_tf) {
-  // Append points and lines from source_tf to this frame
-  int map_n_points = points_.cols();
-  int sum_n_points = map_n_points + source_tf.GetNPoints();
-  points_.conservativeResize(2, sum_n_points);
-  heights_.conservativeResize(sum_n_points);
-  disabled_.conservativeResize(sum_n_points);
+  // // Append points and lines from source_tf to this frame
+  // int map_n_points = points_.cols();
+  // int sum_n_points = map_n_points + source_tf.GetNPoints();
+  // points_.conservativeResize(2, sum_n_points);
+  // heights_.conservativeResize(sum_n_points);
+  // disabled_.conservativeResize(sum_n_points);
 
-  for (int i = 0; i < source_tf.GetNPoints(); i++) {
-    bool duplicate = false;
+  // for (int i = 0; i < source_tf.GetNPoints(); i++) {
+  //   bool duplicate = false;
 
-    // point to line comparison
-    for (int j = 0; j < GetNLines(); j++) {
-      // If a point and a line is close enough, break the loop. (resolution_)
-      double d = DistancePointToLineSegment(source_tf.GetOnePoint(i), GetLines().block(0, j, 2, 1),
-                                            GetLines().block(2, j, 2, 1));
-      if (d < resolution_) {
-        duplicate = true;
-        break;
-      }
-    }
+  //   // point to line comparison
+  //   for (int j = 0; j < GetNLines(); j++) {
+  //     // If a point and a line is close enough, break the loop. (resolution_)
+  //     double d = DistancePointToLineSegment(source_tf.GetOnePoint(i), GetLines().block(0, j, 2, 1),
+  //                                           GetLines().block(2, j, 2, 1));
+  //     if (d < resolution_) {
+  //       duplicate = true;
+  //       break;
+  //     }
+  //   }
 
-    // point to point comparison
-    if (!duplicate) {
-      for (int j = 0; j < GetNPoints(); j++) {
-        // If there is a duplicate, break the loop. Duplicate means the x, y value is similar. (resolution_)
-        if (fabs(GetOnePoint(j)(0) - source_tf.GetOnePoint(i)(0)) < resolution_ &&
-            fabs(GetOnePoint(j)(1) - source_tf.GetOnePoint(i)(1)) < resolution_) {
-          if (source_tf.GetOneHeight(i) > heights_(j)) {
-            // If the height of the source_tf is higher, swap the points instead of setting duplicate to true.
-            points_.col(j) = source_tf.GetOnePoint(i);
-            SetOneHeight(j, source_tf.GetOneHeight(i));
-          }
-          duplicate = true;
-          break;
-        }
-      }
-    }
+  //   // point to point comparison
+  //   if (!duplicate) {
+  //     for (int j = 0; j < GetNPoints(); j++) {
+  //       // If there is a duplicate, break the loop. Duplicate means the x, y value is similar. (resolution_)
+  //       if (fabs(GetOnePoint(j)(0) - source_tf.GetOnePoint(i)(0)) < resolution_ &&
+  //           fabs(GetOnePoint(j)(1) - source_tf.GetOnePoint(i)(1)) < resolution_) {
+  //         if (source_tf.GetOneHeight(i) > heights_(j)) {
+  //           // If the height of the source_tf is higher, swap the points instead of setting duplicate to true.
+  //           points_.col(j) = source_tf.GetOnePoint(i);
+  //           SetOneHeight(j, source_tf.GetOneHeight(i));
+  //         }
+  //         duplicate = true;
+  //         break;
+  //       }
+  //     }
+  //   }
 
-    if (!duplicate) {
-      points_.col(map_n_points) = source_tf.GetOnePoint(i);
-      heights_(map_n_points) = source_tf.GetOneHeight(i);
-      disabled_(map_n_points) = source_tf.GetOnePointDisabled(i);
-      map_n_points++;
-    }
-  }
+  //   if (!duplicate) {
+  //     points_.col(map_n_points) = source_tf.GetOnePoint(i);
+  //     heights_(map_n_points) = source_tf.GetOneHeight(i);
+  //     disabled_(map_n_points) = source_tf.GetOnePointDisabled(i);
+  //     map_n_points++;
+  //   }
+  // }
 
-  points_.conservativeResize(2, map_n_points);
-  heights_.conservativeResize(map_n_points);
-  disabled_.conservativeResize(map_n_points);
+  // points_.conservativeResize(2, map_n_points);
+  // heights_.conservativeResize(map_n_points);
+  // disabled_.conservativeResize(map_n_points);
 
   int map_n_lines = lines_.cols();
   int sum_n_lines = map_n_lines + source_tf.GetNLines();

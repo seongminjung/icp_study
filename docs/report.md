@@ -1,11 +1,11 @@
-# ICP 연구 보고서
+# 도심 환경에서 수직 방향 랜드마크를 활용한 ICP 알고리즘
+
+정성민 (sm18570@yonsei.ac.kr)
 
 ## 목차
 
 1. 서론
-
 2. 연구 방법
-
    1. 데이터 전처리
       1. 복셀화 및 해시 함수
       2. 수직선 및 평면 추출
@@ -14,29 +14,30 @@
       2. Closest Point 찾기
       3. 변환 행렬 계산
       4. 병합
-
 3. 실험
-
    1. 실험 환경
       1. 데이터셋
       2. 베이스라인
    2. 평가 지표
    3. 결과
-   4. 절제 연구 (Abalation Study)
-
+   4. 절제 연구 (Ablation Study)
 4. 결론
+
+<br/>
 
 ## 1. 서론
 
-ICP(Iterative Closest Point) 알고리즘 [1]은 두 개의 3D point cloud 데이터 점군을 매칭하는 알고리즘으로, pose estimation, loop closure 등에 사용되는 알고리즘이다. 두 점군의 각 점들을 매칭하여 두 점군의 변환 행렬을 찾아내는 알고리즘으로 정확도가 높은 알고리즘 중 하나이다. 하지만 ICP 알고리즘은 매칭하는 두 점군의 크기가 클 경우 연산량이 매우 많아지며, feature가 부족한 경우 sliding 현상이 발생하는 등 정확도가 떨어지는 문제점이 있다. 또한, ICP 알고리즘이 6-DoF 변환을 모두 다룰 수 있는 것에 비해, 지상에서의 움직임은 로봇의 형태에 따라 그 자유도가 제한되어 있다. 따라서 로봇 이동의 자유도, 가속도, 회전 반경 등을 고려하여 매칭에 반영한다면 알고리즘을 효율적으로 개선할 여지가 있다.
+ICP(Iterative Closest Point) 알고리즘 [1]은 두 개의 3D point cloud 데이터 점군을 매칭하는 알고리즘으로, pose estimation, loop closure 등에 사용된다. 두 점군의 각 점들을 매칭하여 변환 행렬을 찾아내는 알고리즘으로 안정적이고 강인하다고 알려져 있다. 하지만 점군의 크기가 클 경우 연산량이 매우 많아지며 local optimal solution에 쉽게 빠질 수 있다는 문제점이 있다. 또한 ICP 알고리즘이 6-DoF 변환을 모두 다룰 수 있는 것에 비해, 지상에서의 움직임은 로봇의 형태에 따라 그 자유도가 제한되어 있다. 따라서 로봇 이동의 자유도, 가속도, 회전 반경 등을 매칭에 반영하여 알고리즘을 효율적으로 개선한 연구가 활발히 진행되어 왔다 [3, 4].
 
-이 연구는 도심 환경에서 움직이는 지상 로봇에 초점이 맞춰져 있다. 도심 속 가로등과 나무와 같이 높고 지면에 수직인 물체는 눈에 잘 띄는 효율적인 랜드마크로 사용된다는 것에서 착안했다. 높이가 높을수록 더 많은 프레임에서 그 랜드마크가 관측될 수 있기 때문에, 높은 랜드마크를 위주로 가중치를 두어 매칭을 한다면 모든 data point를 계산하지 않더라도 효율성과 정확도를 개선할 수 있을 것이라는 가설을 세웠다. 이에 따라, 3D point cloud 데이터에서 지면에 수직인 선과 면 성분을 고속으로 추출하고 이를 변환 행렬 계산 알고리즘에 반영하였다. 또한 단순 frame-to-frame 매칭이 아닌, 경우에 따라 몇 프레임 전 랜드마크라도 유지될 수 있도록 하여 랜드마크의 일관성을 향상시켰다. 그 결과, KITTI 데이터셋 [4]에서 ICP와 G-ICP 알고리즘에 비해 2배 이상 빠른 결과를 얻었고, sliding 현상을 크게 개선하여 pose 추정의 정확도를 높일 수 있었다.
+이 연구는 도심 환경에서 움직이는 지상 로봇에 초점이 맞춰져 있다. 도심 속 가로등과 나무와 같이 높고 지면에 수직인 물체는 눈에 잘 띄는 효율적인 랜드마크로 사용된다는 것에서 착안했다. 높이가 높을수록 더 많은 프레임에서 그 랜드마크가 관측될 수 있기 때문에, 높은 랜드마크를 위주로 가중치를 두어 매칭을 한다면 모든 data point를 계산하지 않더라도 효율성과 정확도를 개선할 수 있을 것이라는 가설을 세웠다. 이에 따라, 3D point cloud 데이터에서 지면에 수직인 선과 면 성분을 고속으로 추출하고 이를 변환 행렬 계산 알고리즘에 반영하였다. 또한 단순 frame-to-frame 매칭이 아닌, 경우에 따라 몇 프레임 전 랜드마크라도 유지될 수 있도록 하여 랜드마크의 일관성을 향상시켰다. 그 결과, KITTI 데이터셋 [5]에서 ICP와 G-ICP 알고리즘에 비해 2배 이상 빠른 결과를 얻었고, sliding 현상을 크게 개선하여 pose 추정의 정확도를 높일 수 있었다.
+
+<br/>
 
 ## 2. 연구 방법
 
 ### 2.1. 데이터 전처리
 
-데이터 전처리 과정에서는 3D point cloud로부터 지면에 수직인 선과 면 성분을 고속으로 추출한다. 지표면에서만 움직이는 로봇의 경우 높이가 있는 물체는 주변에 비해 뚜렷하게 구분되기 때문이다. 이러한 수직 성분들은 (x, y) 좌표와 높이로 분리되어 저장되고, 2D ICP에 높이를 가중치로 취한 방식으로 매칭이 이루어진다. 이를 통해 z축 방향의 움직임은 추정할 수 없지만, 지상이나 실내 환경에서는 더욱 효율적이고 정확하게 pose 추정을 할 수 있다.
+데이터 전처리 과정에서는 3D point cloud로부터 지면에 수직인 선과 면 성분을 고속으로 추출한다. 지표면에서만 움직이는 로봇의 경우 높이가 있는 물체는 주변에 비해 뚜렷하게 구분되기 때문이다. 이러한 수직 성분들은 (x, y) 좌표와 높이로 분리되어 저장되고, 이후 2D ICP에 높이를 가중치로 취한 방식으로 매칭이 이루어진다. 이를 통해 z축 방향의 움직임은 추정할 수 없지만, 지상이나 실내 환경에서는 더욱 효율적이고 정확하게 pose 추정을 할 수 있다.
 
 #### 2.1.1. 복셀화 및 해시 함수
 
@@ -58,8 +59,8 @@ KITTI 데이터셋 9번 시퀀스의 첫 프레임을 복셀화한 결과는 아
 
 $$
 \begin{align*}
-\text{Lines} & : \begin{bmatrix} x_1 & x_2 & \dots \\ y_1 & y_2 & \dots \end{bmatrix} \\
-\text{Heights} & : \begin{bmatrix} h_1 \\ h_2 \\ \vdots \end{bmatrix}
+\text{Lines} & : \begin{bmatrix} x_1 & x_2 & \dots \\\\ y_1 & y_2 & \dots \end{bmatrix} \\\\
+\text{Heights} & : \begin{bmatrix} h_1 \\\\ h_2 \\\\ \vdots \end{bmatrix}
 \end{align*}
 $$
 
@@ -69,7 +70,7 @@ $$
 
 $$
 \begin{align*}
-\text{Planes} & : \begin{bmatrix} x_{1, start} & x_{2, start} & \dots \\ y_{1, start} & y_{2, start} & \dots \\ x_{1, end} & y_{2, end} & \dots \\ y_{1, end} & y_{2, end} & \dots \\ h_1 & h_2 & \dots \end{bmatrix} \\
+\text{Planes} & : \begin{bmatrix} x_{1, start} & x_{2, start} & \dots \\\\ y_{1, start} & y_{2, start} & \dots \\\\ x_{1, end} & y_{2, end} & \dots \\\\ y_{1, end} & y_{2, end} & \dots \\\\ h_1 & h_2 & \dots \end{bmatrix} \\\\
 \end{align*}
 $$
 
@@ -93,7 +94,7 @@ KITTI 데이터셋 9번 시퀀스의 첫 프레임에서 수직선과 평면을 
 
 $$
 \begin{align*}
-\mathbf{X} & = \{ x_1, \ x_2, \dots, \ x_n\} \\
+\mathbf{X} & = \{ x_1, \ x_2, \dots, \ x_n\} \\\\
 \mathbf{Y} & = \{ y_1, \ y_2, \dots, \ y_n\}
 \end{align*}
 $$
@@ -106,7 +107,7 @@ $$
 
 $$
 \begin{align*}
-x_0 & = \frac{1}{N} \sum_{i=1}^{N} x_i \\
+x_0 & = \frac{1}{N} \sum_{i=1}^{N} x_i \\\\
 y_0 & = \frac{1}{N} \sum_{i=1}^{N} y_i
 \end{align*}
 $$
@@ -115,7 +116,7 @@ $$
 
 $$
 \begin{align*}
-x_i - x_0 \\
+x_i - x_0 \\\\
 y_i - y_0
 \end{align*}
 $$
@@ -124,8 +125,8 @@ $$
 
 $$
 \begin{gather*}
-\mathbf{h} = \begin{bmatrix} h_1 \\ h_2 \\ \vdots \\ h_n \end{bmatrix} \\
-\mathbf{H} = \sum h_i(\mathbf{x}_i - \mathbf{x}_0)(\mathbf{y}_i - \mathbf{y}_0)^T = \mathbf{X} \cdot diag(\mathbf{h}) \cdot \mathbf{Y} \\
+\mathbf{h} = \begin{bmatrix} h_1 \\\\ h_2 \\\\ \vdots \\\\ h_n \end{bmatrix} \\\\
+\mathbf{H} = \sum h_i(\mathbf{x}_i - \mathbf{x}_0)(\mathbf{y}_i - \mathbf{y}_0)^T = \mathbf{X} \cdot diag(\mathbf{h}) \cdot \mathbf{Y} \\\\
 \end{gather*}
 $$
 
@@ -133,8 +134,8 @@ $$
 
 $$
 \begin{align*}
-\mathbf{H} & = \mathbf{U} \mathbf{D} \mathbf{V}^T \\
-\mathbf{R} & = \mathbf{V} \mathbf{U}^T \\
+\mathbf{H} & = \mathbf{U} \mathbf{D} \mathbf{V}^T \\\\
+\mathbf{R} & = \mathbf{V} \mathbf{U}^T \\\\
 \mathbf{t} & = \mathbf{y}_0 - \mathbf{R} \mathbf{x}_0
 \end{align*}
 $$
@@ -159,6 +160,8 @@ $$
 
 위 사진은 선의 병합 과정을 보여준다. Step 1에서는 물체의 가로 방향 경계면이 여러 개의 선으로 나타나다가, 로봇이 방향을 틀면서 하나의 선으로 병합된다. 분홍색 선이 새로 들어오는 선, 노란색 선이 기존 선을 나타낸다. 새로운 선이 별개였던 기존 선들을 연결해 주면서 점차 하나의 선으로 병합되고, 마지막 step에서는 한번도 나타나지 않은 가로로 긴 노란색 선이 나타나는 것을 확인할 수 있다. 이러한 병합 알고리즘을 통해 물체의 위치에 선을 정확히 위치시키고 오래 유지할 수 있다.
 
+<br/>
+
 ## 3. 실험
 
 ### 3.1. 실험 환경
@@ -169,25 +172,25 @@ $$
 
 #### 3.1.2. 베이스라인
 
-본 연구에서는 기존의 3D ICP 알고리즘을 베이스라인으로 삼았다. 복셀화나 수직선 추출 등의 전처리 과정 없이 3D point cloud 데이터를 그대로 사용하여 매칭을 진행하였다.
+본 연구에서는 ICP 알고리즘 [1]과 G-ICP 알고리즘 [2]을 베이스라인으로 삼았다. 둘 모두 PCL 라이브러리에 이미 구현된 함수를 이용하였고, 복셀화나 수직선 추출 없이 point cloud 자체를 이용했다. 공정한 비교를 위하여 본 연구에서 제안한 알고리즘과 동일한 10%의 비율로 random downsampling을 적용하였다.
 
 ### 3.2. 평가 지표
 
 본 연구의 baseline은 기존의 3D ICP 알고리즘으로 정했다. 평가 지표로는 한 프레임당 처리 속도와, 추정된 pose와 ground truth pose 사이의 Euclidean 거리를 사용하였다. 두 pose 간의 거리는 아래의 수식으로 계산하였다.
 
 $$
-E_{pose} = \Vert \mathbf{t}_{est} - \mathbf{t}_{gt} \Vert
+E_{pose} = \Vert \mathbf{t_{est}} - \mathbf{t_{gt}} \Vert
 $$
 
 ### 3.3. 결과
 
-| Method  |      Proposed Method      |          ICP          |         G-ICP          |
-| :-----: | :-----------------------: | :-------------------: | :--------------------: |
-|  Path   | ![](./result_linemap.png) | ![](./result_icp.png) | ![](./result_gicp.png) |
-| Time(s) |           0.526           |         1.338         |         1.212          |
-|  Error  |           1.496           |        39.431         |         38.455         |
+|  Method   |      Proposed Method      |          ICP          |         G-ICP          |
+| :-------: | :-----------------------: | :-------------------: | :--------------------: |
+|   Path    | ![](./result_linemap.png) | ![](./result_icp.png) | ![](./result_gicp.png) |
+| Avg. Time |           0.526           |         1.338         |         1.212          |
+|   Error   |           1.496           |        39.431         |         38.455         |
 
-본 연구에서 제안한 알고리즘을 3D ICP 및 3D G-ICP 알고리즘과 비교하였다. 본 연구에서 제안한 알고리즘은 속도 측면에서는 ICP와 G-ICP보다 2배 이상 높았다. 정확도 측면에서는, 초반 각도 틀어짐으로 인한 오차를 감안하더라도 rotation과 translation 모두에서 오차가 유의미하게 발생했다. 이는 수직선과 평면을 이용하여 중요한 물체를 집중적으로 매칭하는 것이 단순하게 모든 점들을 이용하는 매칭보다 효율적이고 정확하다는 것을 보여준다.
+본 연구에서 제안한 알고리즘을 3D ICP 및 3D G-ICP 알고리즘과 비교하였다. 본 연구에서 제안한 알고리즘은 속도 측면에서는 ICP와 G-ICP보다 2배 이상 높았다. 정확도 측면에서는, 초반 각도 틀어짐으로 인한 오차를 감안하더라도 ICP와 G-ICP 모두에서 rotation과 translation 오차가 유의미하게 발생했다. 이는 수직선과 평면을 이용하여 중요한 물체를 집중적으로 매칭하는 것이 단순하게 모든 점들을 이용하는 매칭보다 효율적이고 정확하다는 것을 보여준다.
 
 |     Elapsed Time      |         Error          |
 | :-------------------: | :--------------------: |
@@ -195,15 +198,15 @@ $$
 
 위 그래프는 앞의 세 방식에 대해 프레임별 소요 시간과 정확도를 나타낸다. Outlier가 있기는 하나, 대부분의 구간에서 본 연구에서 제안한 알고리즘이 가장 빠른 속도를 보였다. 특히, Sequence 초반에 나타나는 벽들에 대해 sliding 현상을 방지하여 더욱 높은 정확도를 보였다.
 
-### 3.4. 절제 연구 (Abalation Study)
+### 3.4. 절제 연구 (Ablation Study)
 
 본 연구에 적용한 변형 ICP 알고리즘의 각 요소가 pose 추정에 미치는 영향을 살펴보기 위해 절제 연구를 진행하였다.
 
-| Method  |      Proposed Method      |          Without Line-Plane Matching          |    Without Plane Merging    |       Without Plane Extraction        |
-| :-----: | :-----------------------: | :-------------------------------------------: | :-------------------------: | :-----------------------------------: |
-|  Path   | ![](./result_linemap.png) | ![](./result_without_line_plane_matching.png) | ![](./result_onlyframe.png) | ![](./result_only_vertical_lines.png) |
-| Time(s) |           0.526           |                     0.483                     |            0.635            |                 0.828                 |
-|  Error  |           1.496           |                    11.807                     |            8.614            |                27.127                 |
+|  Method   |      Proposed Method      |          Without Line-Plane Matching          |    Without Plane Merging    |       Without Plane Extraction        |
+| :-------: | :-----------------------: | :-------------------------------------------: | :-------------------------: | :-----------------------------------: |
+|   Path    | ![](./result_linemap.png) | ![](./result_without_line_plane_matching.png) | ![](./result_onlyframe.png) | ![](./result_only_vertical_lines.png) |
+| Avg. Time |           0.526           |                     0.483                     |            0.635            |                 0.828                 |
+|   Error   |           1.496           |                    11.807                     |            8.614            |                27.127                 |
 
 1. 수직선-평면 매칭을 하지 않은 경우
 
@@ -217,13 +220,18 @@ $$
 
 평면 추출을 하지 않은 경우, 수직선만을 이용하여 pose 추정을 진행하였다. 이 경우 평면을 구성하고 있는 수직선 각각에 대해 closest point 계산을 수행하므로 계산량이 훨씬 증가한다. 그뿐 아니라 x축 방향의 직선의 경우, 자동차가 x축 방향으로 이동하더라도 feature의 이동이 없으므로 이동이 없다고 인식하는 sliding 현상이 발생한다. Sequence 초반에 자동차 좌우로 긴 벽이 있어 sliding 현상이 크게 발생하였는데, 이로 인해 좌회전을 하는 위치가 크게 차이나는 것을 확인할 수 있다.
 
+<br/>
+
 ## 4. 결론
 
 본 연구에서는 3D point cloud 데이터에서 수직선과 평면을 추출하여 2D ICP 알고리즘과 유사한 방식으로 pose 추정을 하는 알고리즘을 제안하였다. 평면 추출을 통해 계산해야 할 데이터의 양을 획기적으로 감소시키며 동시에 강인함까지 얻을 수 있었다. 기존의 3D ICP 알고리즘에 비해 sliding 현상을 개선하면서 2배 빠른 속도를 보였으며, KITTI 데이터셋을 이용한 실험을 통해 그 효과를 입증하였다. 또한, 수직선-평면 매칭, 평면 병합, 평면 추출 등의 요소가 pose 추정에 미치는 영향을 살펴보기 위한 절제 연구를 진행하였다. 실험 결과, 수직선-평면 매칭과 평면 병합이 pose 추정에 큰 영향을 미치는 것을 확인할 수 있었다. 앞으로는 더욱 정확한 pose 추정을 위해 평면-평면 매칭과 더 효율적인 평면 병합 방법을 연구할 예정이다. 코드 최적화와 GPU 가속을 통해 실시간성을 확보하고 보다 다양한 데이터셋을 통해 알고리즘의 일반성을 검증할 예정이다.
+
+<br/>
 
 ## 참고문헌
 
 1. Besl, P. J., & McKay, N. D. (1992). A method for registration of 3-D shapes. IEEE Transactions on pattern analysis and machine intelligence, 14(2), 239-256.
 2. Segal, A., Haehnel, D., & Thrun, S. (2009). Generalized-ICP. In Robotics: Science and Systems (Vol. 2, pp. 435-442).
 3. Ignacio Vizzo, Tiziano Guadagnino, Benedikt Mersch, Louis Wiesmann, Jens Behley, and Cyrill Stachniss. KISS-ICP: In Defense of Point-to-Point ICP – Simple, Accurate, and Robust Registration If Done the Right Way. IEEE Robotics and Automation Letters (RA-L), 8(2):1–8, 2023.
-4. Andreas Geiger, Philip Lenz, and Raquel Urtasun. Are we ready for Autonomous Driving? The KITTI Vision Bench-mark Suite. In Proc. of the IEEE Conf. on Computer Vision and Pattern Recognition (CVPR), 2012.
+4. A. Censi, ‘‘An ICP variant using a point-to-line metric,’’ in Proc. IEEE Int. Conf. Robot. Autom., Pasadena, CA, USA, May 2008, pp. 19–25.
+5. Andreas Geiger, Philip Lenz, and Raquel Urtasun. Are we ready for Autonomous Driving? The KITTI Vision Bench-mark Suite. In Proc. of the IEEE Conf. on Computer Vision and Pattern Recognition (CVPR), 2012.
